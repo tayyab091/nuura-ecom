@@ -18,8 +18,8 @@ export interface IOrder extends Document {
     province: string
     postalCode: string
   }
-  paymentMethod: 'cod' | 'stripe' | 'jazzcash' | 'easypaisa'
-  paymentStatus: 'pending' | 'paid' | 'failed' | 'refunded'
+  paymentMethod: 'cod' | 'stripe' | 'jazzcash' | 'easypaisa' | 'nayapay'
+  paymentStatus: 'pending' | 'pending_verification' | 'paid' | 'failed' | 'refunded'
   orderStatus:
     | 'pending'
     | 'confirmed'
@@ -62,12 +62,12 @@ const OrderSchema = new Schema<IOrder>(
     },
     paymentMethod: {
       type: String,
-      enum: ['cod', 'stripe', 'jazzcash', 'easypaisa'],
+      enum: ['cod', 'stripe', 'jazzcash', 'easypaisa', 'nayapay'],
       required: true,
     },
     paymentStatus: {
       type: String,
-      enum: ['pending', 'paid', 'failed', 'refunded'],
+      enum: ['pending', 'pending_verification', 'paid', 'failed', 'refunded'],
       default: 'pending',
     },
     orderStatus: {

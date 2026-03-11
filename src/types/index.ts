@@ -38,7 +38,7 @@ export interface Address {
   postalCode: string
 }
 
-export type PaymentMethod = 'cod' | 'stripe' | 'jazzcash' | 'easypaisa'
+export type PaymentMethod = 'cod' | 'stripe' | 'jazzcash' | 'easypaisa' | 'nayapay'
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded'
 export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
 

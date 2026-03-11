@@ -1,5 +1,5 @@
 import Navbar from '@/components/layout/Navbar'
-import Footer from '@/components/layout/Footer'
+import ConditionalFooter from '@/components/layout/ConditionalFooter'
 import CartDrawer from '@/components/shop/CartDrawer'
 
 export default function ShopLayout({
@@ -12,7 +12,7 @@ export default function ShopLayout({
       <Navbar />
       <CartDrawer />
       <main>{children}</main>
-      <Footer />
+      <ConditionalFooter />
     </>
   )
 }

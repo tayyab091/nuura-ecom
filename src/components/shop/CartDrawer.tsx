@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, ShoppingBag, Trash2, Plus, Minus } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { useCartStore } from '@/store/cartStore'
 import { MagneticButton } from '@/components/shared/MagneticButton'
 
@@ -14,6 +15,7 @@ export default function CartDrawer() {
   const totalPrice = useCartStore((s) => s.totalPrice())
   const removeItem = useCartStore((s) => s.removeItem)
   const updateQuantity = useCartStore((s) => s.updateQuantity)
+  const router = useRouter()
 
   return (
     <AnimatePresence>
@@ -157,7 +159,10 @@ export default function CartDrawer() {
                 </p>
 
                 {/* Checkout */}
-                <button className="mt-6 w-full bg-[--color-nuura-charcoal] text-white font-sans text-xs tracking-widest uppercase py-4 hover:bg-[--color-nuura-muted] transition-colors duration-200">
+                <button
+                  onClick={() => { closeCart(); router.push('/checkout') }}
+                  className="mt-6 w-full bg-[--color-nuura-charcoal] text-white font-sans text-xs tracking-widest uppercase py-4 hover:bg-[--color-nuura-muted] transition-colors duration-200"
+                >
                   Proceed to Checkout
                 </button>
 
