@@ -1,93 +1,144 @@
 'use client'
 
 import Link from 'next/link'
-import { motion } from 'framer-motion'
+import Image from 'next/image'
+import { useCartStore } from '@/store/cartStore'
 import { Product } from '@/types'
-import { useCart } from '@/hooks/useCart'
-import { scaleIn } from '@/lib/animations'
 
 interface ProductCardProps {
-  product: Product
+  product: {
+    _id: string
+    name: string
+    tagline: string
+    price: number
+    comparePrice?: number | null
+    category: string
+    isNewDrop: boolean
+    isBestSeller: boolean
+    images: string[]
+    slug: string
+  }
+  index?: number
+}
+
+const CATEGORY_GRADIENTS: Record<string, string> = {
+  'self-care': 'linear-gradient(135deg, #F8D7DA, #EDE0D4)',
+  accessories: 'linear-gradient(135deg, #EDE0D4, #F5F0E6)',
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
-  const { addItem } = useCart()
-  const discount = product.comparePrice
-    ? Math.round(((product.comparePrice - product.price) / product.comparePrice) * 100)
-    : null
+  const addItem = useCartStore((s) => s.addItem)
+
+  const discount =
+    product.comparePrice && product.comparePrice > product.price
+      ? Math.round(
+          ((product.comparePrice - product.price) / product.comparePrice) * 100
+        )
+      : null
+
+  const handleQuickAdd = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    /* build a minimal Product-compatible object for the cart */
+    const cartProduct: Product = {
+      _id: product._id,
+      slug: product.slug,
+      name: product.name,
+      tagline: product.tagline,
+      description: '',
+      price: product.price,
+      comparePrice: product.comparePrice ?? undefined,
+      images: product.images,
+      category: product.category as Product['category'],
+      tags: [],
+      inStock: true,
+      stockCount: 99,
+      isFeatured: false,
+      isNewDrop: product.isNewDrop,
+      isBestSeller: product.isBestSeller,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+    addItem(cartProduct)
+  }
 
   return (
-    <motion.div
-      variants={scaleIn}
-      className="group"
-      data-cursor="hover"
-    >
-      <Link href={`/product/${product.slug}`}>
-        {/* Image */}
-        <div className="relative aspect-[3/4] bg-[#F5F0E6] mb-4 overflow-hidden rounded-brand">
+    <div className="group" data-cursor="hover">
+      <Link href={`/product/${product.slug}`} className="block">
+        {/* ── Image area ──────────────────────────── */}
+        <div className="relative aspect-[3/4] overflow-hidden">
+          {/* Background */}
+          {product.images[0] ? (
+            <Image
+              src={product.images[0]}
+              alt={product.name}
+              fill
+              className="object-cover transition-transform duration-[600ms] ease-out group-hover:scale-[1.06]"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            />
+          ) : (
+            <div
+              className="absolute inset-0 transition-transform duration-[600ms] ease-out group-hover:scale-[1.06]"
+              style={{
+                background:
+                  CATEGORY_GRADIENTS[product.category] ??
+                  CATEGORY_GRADIENTS['self-care'],
+              }}
+            />
+          )}
+
+          {/* Hover overlay */}
+          <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
           {/* Badges */}
-          <div className="absolute top-3 left-3 z-10 flex flex-col gap-2">
+          <div className="absolute top-3 left-3 z-10 flex gap-2">
             {product.isNewDrop && (
-              <span className="bg-[#2C2C2C] text-white font-sans text-[9px] tracking-widest uppercase px-2 py-1">
-                New
+              <span className="bg-[--color-nuura-charcoal] text-white font-sans text-[9px] tracking-widest uppercase px-3 py-1.5">
+                New Drop
               </span>
             )}
             {product.isBestSeller && (
-              <span className="bg-[#F8D7DA] text-[#2C2C2C] font-sans text-[9px] tracking-widest uppercase px-2 py-1">
-                Bestseller
-              </span>
-            )}
-            {discount && (
-              <span className="bg-[#B2BDB5] text-white font-sans text-[9px] tracking-widest uppercase px-2 py-1">
-                -{discount}%
+              <span className="bg-[--color-nuura-blush] text-[--color-nuura-charcoal] font-sans text-[9px] tracking-widest uppercase px-3 py-1.5">
+                Best Seller
               </span>
             )}
           </div>
 
-          {/* Out of stock overlay */}
-          {!product.inStock && (
-            <div className="absolute inset-0 z-10 bg-white/60 flex items-center justify-center">
-              <span className="font-sans text-xs tracking-widest uppercase text-[#8A7F7A]">
-                Sold Out
-              </span>
-            </div>
-          )}
-
-          {/* Image placeholder */}
-          <div className="absolute inset-0 brand-gradient group-hover:scale-105 transition-transform duration-700" />
-        </div>
-      </Link>
-
-      {/* Info */}
-      <div className="space-y-1">
-        <p className="font-sans text-[10px] tracking-[0.25em] uppercase text-[#8A7F7A]">
-          {product.category}
-        </p>
-        <h3 className="font-display text-lg text-[#2C2C2C] leading-tight">
-          {product.name}
-        </h3>
-        <p className="font-sans text-sm text-[#8A7F7A]">{product.tagline}</p>
-        <div className="flex items-center gap-3 pt-1">
-          <span className="font-sans text-sm font-medium text-[#2C2C2C]">
-            Rs. {product.price.toLocaleString()}
-          </span>
-          {product.comparePrice && (
-            <span className="font-sans text-xs text-[#8A7F7A] line-through">
-              Rs. {product.comparePrice.toLocaleString()}
-            </span>
-          )}
-        </div>
-
-        {/* Quick Add */}
-        {product.inStock && (
+          {/* Quick Add button */}
           <button
-            onClick={() => addItem(product)}
-            className="w-full mt-3 py-3 border border-[#2C2C2C] font-sans text-xs tracking-widest uppercase text-[#2C2C2C] hover:bg-[#2C2C2C] hover:text-white transition-colors duration-300 opacity-0 group-hover:opacity-100"
+            onClick={handleQuickAdd}
+            className="absolute bottom-4 left-4 right-4 z-10 bg-white/90 backdrop-blur-sm text-[--color-nuura-charcoal] font-sans text-[10px] tracking-widest uppercase py-3 text-center w-full translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 ease-out"
           >
             Quick Add
           </button>
-        )}
-      </div>
-    </motion.div>
+        </div>
+
+        {/* ── Info area ───────────────────────────── */}
+        <div className="pt-4 pb-2">
+          <h3 className="font-display text-lg text-[--color-nuura-charcoal] leading-tight">
+            {product.name}
+          </h3>
+          <p className="font-sans text-xs text-[--color-nuura-muted] mt-1">
+            {product.tagline}
+          </p>
+          <div className="mt-3 flex items-center gap-3">
+            <span className="font-sans text-sm text-[--color-nuura-charcoal]">
+              PKR {product.price.toLocaleString()}
+            </span>
+            {product.comparePrice && (
+              <span className="font-sans text-xs text-[--color-nuura-muted] line-through">
+                PKR {product.comparePrice.toLocaleString()}
+              </span>
+            )}
+            {discount && (
+              <span className="font-sans text-[9px] text-[--color-nuura-sage]">
+                -{discount}%
+              </span>
+            )}
+          </div>
+        </div>
+      </Link>
+    </div>
   )
 }
+
