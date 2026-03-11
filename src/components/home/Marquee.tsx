@@ -1,28 +1,34 @@
 'use client'
 
-const MARQUEE_ITEMS = [
-  'Glow in your own light',
-  'Premium Self-Care',
-  'Crafted for Pakistani Women',
-  'Aesthetic Accessories',
-  'Free Shipping on Rs. 3000+',
-  'New Drops Monthly',
-]
+interface MarqueeProps {
+  reverse?: boolean
+}
 
-export default function Marquee() {
-  const items = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS]
+const ITEMS =
+  'Self-Care ✦ Glow Up ✦ Curated Drops ✦ Aesthetic Accessories ✦ New Arrivals ✦ Limited Edition ✦ Nuura ✦ '
+
+export default function Marquee({ reverse = false }: MarqueeProps) {
+  /* Duplicate text so the loop appears seamless */
+  const text = ITEMS.repeat(8)
 
   return (
-    <div className="py-5 bg-[#2C2C2C] overflow-hidden">
-      <div className="flex whitespace-nowrap animate-marquee">
-        {items.map((item, i) => (
-          <span key={i} className="inline-flex items-center gap-6 mr-6">
-            <span className="font-sans text-xs tracking-[0.25em] uppercase text-[#FDFCFB]">
-              {item}
-            </span>
-            <span className="text-[#8A7F7A] text-xs">✦</span>
-          </span>
-        ))}
+    <div className="w-full overflow-hidden bg-[--color-nuura-charcoal] py-4">
+      <div
+        className={[
+          'flex whitespace-nowrap w-max',
+          reverse ? 'animate-[marquee_20s_linear_infinite_reverse]' : 'animate-marquee',
+        ].join(' ')}
+      >
+        {/* Two identical halves — first exits left while second slides in */}
+        <span className="font-sans text-[11px] tracking-[0.25em] uppercase text-[--color-nuura-cream]/80 pr-0">
+          {text}
+        </span>
+        <span
+          className="font-sans text-[11px] tracking-[0.25em] uppercase text-[--color-nuura-cream]/80"
+          aria-hidden="true"
+        >
+          {text}
+        </span>
       </div>
     </div>
   )
