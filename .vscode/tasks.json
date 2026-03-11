@@ -1,0 +1,12 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Nuura Dev Server",
+			"type": "shell",
+			"command": "C:\\Users\\Tayyab\\AppData\\Local\\node\\npm.cmd run dev",
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}
