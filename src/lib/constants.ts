@@ -62,7 +62,7 @@ export const SHIPPING_RATES: Record<string, number> = {
 }
 
 export const FREE_SHIPPING_THRESHOLD = 5000
-export const WHATSAPP_NUMBER = '923000000000'
+export const WHATSAPP_NUMBER = '923241067371'
 
 export const PRODUCT_CATEGORIES = [
   { label: 'Self-Care', slug: 'self-care' },
