@@ -83,8 +83,7 @@ export default function Navbar() {
         >
           {NAV_LINKS.map((link) => {
             const active = pathname === link.href ||
-              (link.href === '/shop' && pathname === '/shop' && !link.href.includes('?')) ||
-              (link.href.includes('?') && pathname + window?.location?.search === link.href)
+              (link.href === '/shop' && pathname === '/shop' && !link.href.includes('?'))
             return (
               <Link
                 key={link.href}
