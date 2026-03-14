@@ -1,0 +1,4 @@
+password: 0D3r4n4agXhnSHHQ
+username: muhammadtayyab0904_db_user
+
+String: mongodb+srv://muhammadtayyab0904_db_user:0D3r4n4agXhnSHHQ@nuura.gt85rhf.mongodb.net/?appName=Nuura
