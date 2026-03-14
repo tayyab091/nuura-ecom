@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+﻿import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import ProductImages from '@/components/product/ProductImages'
 import ProductInfo from '@/components/product/ProductInfo'
