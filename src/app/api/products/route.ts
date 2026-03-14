@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server'
 import { connectDB } from '@/lib/mongodb'
 import ProductModel from '@/models/Product'
-import { MOCK_PRODUCTS } from '@/lib/mockData'
+import { MOCK_PRODUCTS as MOCK_DATA } from '@/lib/mockData'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const category = searchParams.get('category')
   const featured = searchParams.get('featured')
   const newDrop = searchParams.get('newDrop')
-  const limit = parseInt(searchParams.get('limit') ?? '12')
+  const limitParam = parseInt(searchParams.get('limit') ?? '12', 10)
+  const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 12
 
   try {
     await connectDB()
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ products })
   } catch {
     // DB not connected — return mock data
-    let filtered = MOCK_PRODUCTS as typeof MOCK_PRODUCTS
+    let filtered = MOCK_DATA as typeof MOCK_DATA
     if (category) filtered = filtered.filter((p) => p.category === category)
     if (featured) filtered = filtered.filter((p) => p.isFeatured)
     if (newDrop) filtered = filtered.filter((p) => p.isNewDrop)
