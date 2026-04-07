@@ -1,276 +1,121 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { formatPKR } from '@/lib/utils'
+import { TrendingUp, ShoppingBag, Clock, Package } from 'lucide-react'
 
-interface OrderRow {
-  _id: string
-  orderNumber: string
-  customer: { name: string; email: string }
-  items: unknown[]
-  total: number
-  paymentMethod: string
-  orderStatus: string
-  paymentStatus: string
-  createdAt: string
+const C = { forest:'#1B2E1F', cream:'#F5F0E6', gold:'#D4A853', white:'#FFFFFF', ink:'#0F1A11', muted:'#6B7B6E', border:'#DDD8CF', bg:'#FAFAF8' }
+
+interface Stats { totalOrders:number; pendingVerification:number; confirmedRevenue:number; totalProducts:number; recentOrders:any[] }
+
+const STATUS_COLORS: Record<string,{ bg:string; color:string }> = {
+  pending_verification: { bg:'rgba(212,168,83,0.12)', color:'#B8860B' },
+  confirmed: { bg:'rgba(27,46,31,0.08)', color:'#1B2E1F' },
+  processing: { bg:'rgba(59,130,246,0.1)', color:'#1d4ed8' },
+  shipped: { bg:'rgba(139,92,246,0.1)', color:'#6d28d9' },
+  delivered: { bg:'rgba(16,185,129,0.1)', color:'#065f46' },
+  cancelled: { bg:'rgba(239,68,68,0.1)', color:'#991b1b' },
+  pending: { bg:'rgba(212,168,83,0.08)', color:'#92400e' },
 }
 
-interface Stats {
-  totalOrders: number
-  pendingVerification: number
-  confirmedRevenue: number
-  totalProducts: number
-  recentOrders: OrderRow[]
+const PAY_COLORS: Record<string,{ bg:string; color:string }> = {
+  cod: { bg:'rgba(27,46,31,0.08)', color:'#1B2E1F' },
+  jazzcash: { bg:'rgba(237,28,36,0.1)', color:'#991b1b' },
+  easypaisa: { bg:'rgba(76,175,80,0.1)', color:'#166534' },
+  nayapay: { bg:'rgba(123,45,139,0.1)', color:'#581c87' },
 }
 
-const PAYMENT_BADGE: Record<string, string> = {
-  cod: 'bg-blue-500/20 text-blue-700',
-  jazzcash: 'bg-red-500/20 text-red-700',
-  easypaisa: 'bg-green-500/20 text-green-700',
-  nayapay: 'bg-purple-500/20 text-purple-700',
-}
-
-const STATUS_BADGE: Record<string, string> = {
-  pending: 'bg-amber-500/20 text-amber-700',
-  pending_verification: 'bg-amber-500/20 text-amber-700',
-  confirmed: 'bg-green-500/20 text-green-700',
-  processing: 'bg-blue-500/20 text-blue-700',
-  shipped: 'bg-blue-500/20 text-blue-700',
-  delivered: 'bg-emerald-500/20 text-emerald-700',
-  cancelled: 'bg-red-500/20 text-red-700',
-}
-
-function StatusPill({ status }: { status: string }) {
-  return (
-    <span
-      className={`inline-block px-2 py-1 rounded-full font-sans text-[10px] tracking-wider uppercase ${STATUS_BADGE[status] ?? 'bg-[#DDD8CF] text-[#6B7B6E]'}`}
-    >
-      {status.replace('_', ' ')}
-    </span>
-  )
-}
-
-function PaymentPill({ method }: { method: string }) {
-  return (
-    <span
-      className={`inline-block px-2 py-1 rounded-full font-sans text-[10px] tracking-wider uppercase ${PAYMENT_BADGE[method] ?? 'bg-[#DDD8CF] text-[#6B7B6E]'}`}
-    >
-      {method}
-    </span>
-  )
-}
-
-export default function AdminDashboardPage() {
-  const [stats, setStats] = useState<Stats | null>(null)
+export default function AdminDashboard() {
+  const [stats, setStats] = useState<Stats|null>(null)
   const [loading, setLoading] = useState(true)
-  const [approvingId, setApprovingId] = useState<string | null>(null)
-
-  async function fetchStats() {
-    try {
-      const res = await fetch('/api/admin/stats')
-      const data = await res.json()
-      setStats(data)
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false)
-    }
-  }
 
   useEffect(() => {
-    fetchStats()
+    fetch('/api/admin/stats')
+      .then(r => r.json())
+      .then(d => { setStats(d); setLoading(false) })
+      .catch(() => setLoading(false))
   }, [])
 
-  async function updateOrder(id: string, body: Record<string, string>) {
-    setApprovingId(id)
-    try {
-      await fetch(`/api/admin/orders/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      await fetchStats()
-    } finally {
-      setApprovingId(null)
-    }
-  }
-
-  const today = new Date().toLocaleDateString('en-PK', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
-
-  const pendingOrders =
-    stats?.recentOrders?.filter((o) => o.paymentStatus === 'pending_verification') ?? []
+  const STAT_CARDS = [
+    { label:'Total Orders', value:stats?.totalOrders??'—', icon:ShoppingBag, color:C.forest },
+    { label:'Pending Verification', value:stats?.pendingVerification??'—', icon:Clock, color:'#B8860B' },
+    { label:'Revenue (PKR)', value:stats?.confirmedRevenue?`${(stats.confirmedRevenue/1000).toFixed(0)}K`:'—', icon:TrendingUp, color:'#166534' },
+    { label:'Total Products', value:stats?.totalProducts??'—', icon:Package, color:'#6d28d9' },
+  ]
 
   return (
-    <div>
-      <div className="px-8 py-8 border-b border-[#DDD8CF]">
-        <h1 className="font-sans text-xl text-[#0F1A11] font-light">Dashboard</h1>
-        <p className="font-sans text-xs text-[#6B7B6E] mt-1">{today}</p>
+    <div style={{ padding:'clamp(1.5rem,3vw,2.5rem)' }}>
+      {/* Header */}
+      <div style={{ marginBottom:'2rem', paddingBottom:'1.5rem', borderBottom:`1px solid ${C.border}` }}>
+        <h1 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', fontWeight:300, color:C.ink, margin:'0 0 4px' }}>Dashboard</h1>
+        <p style={{ fontFamily:'var(--font-sans)', fontSize:'13px', color:C.muted, margin:0 }}>
+          {new Date().toLocaleDateString('en-PK', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}
+        </p>
       </div>
 
-      <div className="px-8 py-8 grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          {
-            label: 'Total Orders',
-            value: loading ? '-' : String(stats?.totalOrders ?? 0),
-            sub: 'All time',
-          },
-          {
-            label: 'Pending Verification',
-            value: loading ? '-' : String(stats?.pendingVerification ?? 0),
-            sub: 'Awaiting approval',
-          },
-          {
-            label: 'Confirmed Revenue',
-            value: loading ? '-' : formatPKR(stats?.confirmedRevenue ?? 0),
-            sub: 'Confirmed & shipped',
-          },
-          {
-            label: 'Products',
-            value: loading ? '-' : String(stats?.totalProducts ?? 0),
-            sub: 'Live in store',
-          },
-        ].map((s) => (
-          <div key={s.label} className="bg-[#FFFFFF] p-6 border border-[#DDD8CF]">
-            <p className="font-sans text-[10px] tracking-widest uppercase text-[#6B7B6E]">
-              {s.label}
+      {/* Stats */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:'1rem', marginBottom:'2rem' }} className="md:grid-cols-4">
+        {STAT_CARDS.map((card,i) => (
+          <div key={i} style={{ background:C.white, border:`1px solid ${C.border}`, padding:'1.5rem', borderTop:`3px solid ${card.color}` }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'1rem' }}>
+              <p style={{ fontFamily:'var(--font-sans)', fontSize:'11px', letterSpacing:'0.1em', textTransform:'uppercase', color:C.muted, margin:0 }}>{card.label}</p>
+              <card.icon size={18} strokeWidth={1.5} color={card.color} />
+            </div>
+            <p style={{ fontFamily:'var(--font-display)', fontSize:'2.2rem', fontWeight:300, color:C.ink, margin:0, lineHeight:1 }}>
+              {loading?'—':card.value}
             </p>
-            <p className="font-sans text-3xl text-[#0F1A11] font-light mt-2">{s.value}</p>
-            <p className="font-sans text-xs text-[#6B7B6E] mt-1">{s.sub}</p>
           </div>
         ))}
       </div>
 
-      {pendingOrders.length > 0 && (
-        <div className="px-8 mb-6">
-          <p className="font-sans text-sm text-amber-700 mb-4">
-            Needs Your Attention ({pendingOrders.length})
-          </p>
-          <div className="flex flex-col gap-3">
-            {pendingOrders.map((order) => (
-              <div
-                key={order._id}
-                className="bg-[#FFFFFF] border border-amber-500/40 px-6 py-4 flex items-center justify-between gap-4"
-              >
-                <div className="flex flex-col gap-1">
-                  <p className="font-mono text-xs text-[#0F1A11]">{order.orderNumber}</p>
-                  <p className="font-sans text-sm text-[#6B7B6E]">{order.customer.name}</p>
-                  <div className="flex gap-2 mt-1">
-                    <PaymentPill method={order.paymentMethod} />
-                    <StatusPill status={order.paymentStatus} />
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() =>
-                      updateOrder(order._id, {
-                        orderStatus: 'confirmed',
-                        paymentStatus: 'paid',
-                      })
-                    }
-                    disabled={approvingId === order._id}
-                    className="bg-[#1B2E1F] text-[#F5F0E6] border border-[#1B2E1F] font-sans text-xs tracking-wider uppercase px-4 py-2 hover:bg-[#D4A853] hover:border-[#D4A853] hover:text-[#1B2E1F] transition-colors disabled:opacity-50"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    onClick={() =>
-                      updateOrder(order._id, {
-                        orderStatus: 'cancelled',
-                        paymentStatus: 'failed',
-                      })
-                    }
-                    disabled={approvingId === order._id}
-                    className="bg-[#F5F0E6] text-[#6B7B6E] border border-[#DDD8CF] font-sans text-xs tracking-wider uppercase px-4 py-2 hover:bg-[#EEE7DA] transition-colors disabled:opacity-50"
-                  >
-                    Reject
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="px-8 mt-2 pb-12">
-        <div className="flex items-center justify-between mb-4">
-          <p className="font-sans text-sm text-[#6B7B6E]">Recent Orders</p>
-          <Link
-            href="/admin/orders"
-            className="font-sans text-xs text-[#6B7B6E] hover:text-[#0F1A11] transition-colors"
-          >
-            View All -&gt;
-          </Link>
+      {/* Recent Orders */}
+      <div style={{ background:C.white, border:`1px solid ${C.border}` }}>
+        <div style={{ padding:'1.25rem 1.5rem', borderBottom:`1px solid ${C.border}`, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <h2 style={{ fontFamily:'var(--font-display)', fontSize:'1.25rem', fontWeight:300, color:C.ink, margin:0 }}>Recent Orders</h2>
+          <a href="/admin/orders" style={{ fontFamily:'var(--font-sans)', fontSize:'12px', color:C.gold, textDecoration:'none', letterSpacing:'0.1em' }}>View All →</a>
         </div>
 
-        <div className="bg-[#FFFFFF] border border-[#DDD8CF] overflow-x-auto">
-          {loading ? (
-            <div className="px-6 py-12 text-center font-sans text-sm text-[#6B7B6E]">
-              Loading...
-            </div>
-          ) : !stats?.recentOrders?.length ? (
-            <div className="px-6 py-12 text-center font-sans text-sm text-[#6B7B6E]">
-              No orders yet
-            </div>
-          ) : (
-            <table className="w-full min-w-[700px]">
+        {loading ? (
+          <div style={{ padding:'3rem', textAlign:'center', color:C.muted, fontFamily:'var(--font-sans)', fontSize:'13px' }}>Loading...</div>
+        ) : !stats?.recentOrders?.length ? (
+          <div style={{ padding:'3rem', textAlign:'center', color:C.muted, fontFamily:'var(--font-sans)', fontSize:'13px' }}>No orders yet. Share your store link to start selling!</div>
+        ) : (
+          <div style={{ overflowX:'auto' }}>
+            <table style={{ width:'100%', borderCollapse:'collapse' }}>
               <thead>
-                <tr className="bg-[#1B2E1F]">
-                  {['Order #', 'Customer', 'Items', 'Total', 'Payment', 'Status', 'Date'].map(
-                    (h) => (
-                      <th
-                        key={h}
-                        className="font-sans text-[10px] tracking-widest uppercase text-[#F5F0E6] px-6 py-4 text-left"
-                      >
-                        {h}
-                      </th>
-                    )
-                  )}
+                <tr style={{ background:C.forest }}>
+                  {['Order #','Customer','Total','Payment','Status','Date'].map(h => (
+                    <th key={h} style={{ padding:'12px 16px', fontFamily:'var(--font-sans)', fontSize:'10px', letterSpacing:'0.15em', textTransform:'uppercase', color:'rgba(245,240,230,0.7)', textAlign:'left', fontWeight:400, whiteSpace:'nowrap' }}>{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {stats?.recentOrders?.map((order) => (
-                  <tr
-                    key={order._id}
-                    className="border-b border-[#DDD8CF] last:border-0 hover:bg-[#F5F0E6]/40 transition-colors"
-                  >
-                    <td className="font-mono text-xs text-[#0F1A11] px-6 py-4">
-                      {order.orderNumber}
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="font-sans text-sm text-[#0F1A11]">{order.customer.name}</p>
-                      <p className="font-sans text-xs text-[#6B7B6E]">{order.customer.email}</p>
-                    </td>
-                    <td className="font-sans text-sm text-[#6B7B6E] px-6 py-4">
-                      {order.items.length} item{order.items.length !== 1 ? 's' : ''}
-                    </td>
-                    <td className="font-sans text-sm text-[#0F1A11] px-6 py-4">
-                      {formatPKR(order.total)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <PaymentPill method={order.paymentMethod} />
-                    </td>
-                    <td className="px-6 py-4">
-                      <StatusPill status={order.orderStatus} />
-                    </td>
-                    <td className="font-sans text-xs text-[#6B7B6E] px-6 py-4">
-                      {new Date(order.createdAt).toLocaleDateString('en-PK', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </td>
-                  </tr>
-                ))}
+                {stats.recentOrders.map((order:any, i:number) => {
+                  const sc = STATUS_COLORS[order.orderStatus] || { bg:'#f3f4f6', color:'#374151' }
+                  const pc = PAY_COLORS[order.paymentMethod] || { bg:'#f3f4f6', color:'#374151' }
+                  return (
+                    <tr key={i} style={{ borderBottom:`1px solid ${C.border}` }}
+                      onMouseEnter={e=>{ (e.currentTarget as HTMLTableRowElement).style.background='rgba(27,46,31,0.02)' }}
+                      onMouseLeave={e=>{ (e.currentTarget as HTMLTableRowElement).style.background='transparent' }}>
+                      <td style={{ padding:'14px 16px', fontFamily:'monospace', fontSize:'12px', color:C.ink, whiteSpace:'nowrap' }}>#{order.orderNumber}</td>
+                      <td style={{ padding:'14px 16px' }}>
+                        <p style={{ fontFamily:'var(--font-sans)', fontSize:'13px', color:C.ink, margin:'0 0 2px' }}>{order.customer?.name}</p>
+                        <p style={{ fontFamily:'var(--font-sans)', fontSize:'11px', color:C.muted, margin:0 }}>{order.customer?.email}</p>
+                      </td>
+                      <td style={{ padding:'14px 16px', fontFamily:'var(--font-sans)', fontSize:'13px', color:C.ink, whiteSpace:'nowrap' }}>PKR {order.total?.toLocaleString()}</td>
+                      <td style={{ padding:'14px 16px' }}>
+                        <span style={{ padding:'4px 10px', borderRadius:'4px', background:pc.bg, color:pc.color, fontFamily:'var(--font-sans)', fontSize:'11px', textTransform:'uppercase', letterSpacing:'0.05em', whiteSpace:'nowrap' }}>{order.paymentMethod}</span>
+                      </td>
+                      <td style={{ padding:'14px 16px' }}>
+                        <span style={{ padding:'4px 10px', borderRadius:'4px', background:sc.bg, color:sc.color, fontFamily:'var(--font-sans)', fontSize:'11px', textTransform:'uppercase', letterSpacing:'0.05em', whiteSpace:'nowrap' }}>{order.orderStatus?.replace('_',' ')}</span>
+                      </td>
+                      <td style={{ padding:'14px 16px', fontFamily:'var(--font-sans)', fontSize:'12px', color:C.muted, whiteSpace:'nowrap' }}>{new Date(order.createdAt).toLocaleDateString('en-PK')}</td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )

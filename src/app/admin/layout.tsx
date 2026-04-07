@@ -1,18 +1,10 @@
 'use client'
 
-import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import {
-  LayoutDashboard,
-  ShoppingBag,
-  Package,
-  Users,
-  Settings,
-  ExternalLink,
-  LogOut,
-} from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
+import { LayoutDashboard, ShoppingBag, Package, Users, Settings, ExternalLink, LogOut } from 'lucide-react'
 
-const NAV_LINKS = [
+const LINKS = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/admin' },
   { icon: ShoppingBag, label: 'Orders', href: '/admin/orders' },
   { icon: Package, label: 'Products', href: '/admin/products' },
@@ -23,47 +15,34 @@ const NAV_LINKS = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
+  const isLogin = pathname === '/admin/login'
 
-  function handleLogout() {
+  if (isLogin) return <>{children}</>
+
+  const logout = () => {
     document.cookie = 'nuura-admin-token=; path=/; max-age=0'
     router.push('/admin/login')
   }
 
-  if (pathname === '/admin/login') {
-    return <>{children}</>
-  }
-
   return (
-    <div className="flex h-screen bg-[#F5F0E6] overflow-hidden">
-      <aside className="w-60 flex-shrink-0 bg-[#1B2E1F] border-r border-[#DDD8CF]/30 flex flex-col">
-        <div className="px-6 pt-8 pb-0">
-          <p
-            style={{ fontFamily: 'var(--font-italiana)', letterSpacing: '0.2em' }}
-            className="text-xl text-[#F5F0E6]"
-          >
-            Nuura
-          </p>
-          <p className="font-sans text-[10px] text-[#F5F0E6]/50 tracking-widest uppercase mt-1">
-            Admin
-          </p>
-          <div className="border-b border-[#F5F0E6]/10 mt-4 mb-6" />
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#F5F0E6', fontFamily: 'var(--font-sans)' }}>
+      {/* Sidebar */}
+      <aside style={{ width: '240px', flexShrink: 0, background: '#1B2E1F', display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, bottom: 0, left: 0 }}>
+        {/* Logo */}
+        <div style={{ padding: '2rem 1.5rem', borderBottom: '1px solid rgba(245,240,230,0.08)' }}>
+          <p style={{ fontFamily: 'var(--font-accent)', fontSize: '20px', letterSpacing: '0.4em', color: '#F5F0E6', margin: 0, textTransform: 'uppercase' }}>NUURA</p>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#D4A853', margin: '4px 0 0' }}>Admin Portal</p>
         </div>
 
-        <nav className="flex flex-col gap-1 px-3 flex-1">
-          {NAV_LINKS.map(({ icon: Icon, label, href }) => {
-            const isActive =
-              href === '/admin' ? pathname === '/admin' : pathname.startsWith(href)
+        {/* Nav */}
+        <nav style={{ flex: 1, padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {LINKS.map(({ icon: Icon, label, href }) => {
+            const active = pathname === href
             return (
-              <Link
-                key={href}
-                href={href}
-                className={[
-                  'flex items-center gap-3 px-4 py-3 rounded-sm font-sans text-sm transition-all duration-150',
-                  isActive
-                    ? 'bg-[rgba(212,168,83,0.15)] text-[#D4A853]'
-                    : 'text-[#F5F0E6]/70 hover:bg-[#F5F0E6]/10 hover:text-[#F5F0E6]',
-                ].join(' ')}
-              >
+              <Link key={href} href={href}
+                style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', textDecoration: 'none', borderRadius: '6px', background: active ? 'rgba(212,168,83,0.12)' : 'transparent', color: active ? '#D4A853' : 'rgba(245,240,230,0.55)', fontSize: '13px', letterSpacing: '0.01em', transition: 'all 150ms', fontFamily: 'var(--font-sans)' }}
+                onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(245,240,230,0.06)'; (e.currentTarget as HTMLAnchorElement).style.color = '#F5F0E6' } }}
+                onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(245,240,230,0.55)' } }}>
                 <Icon size={16} strokeWidth={1.5} />
                 {label}
               </Link>
@@ -71,27 +50,29 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           })}
         </nav>
 
-        <div className="px-6 py-6 flex flex-col gap-3 border-t border-[#F5F0E6]/10">
-          <a
-            href="/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 font-sans text-xs text-[#F5F0E6]/50 hover:text-[#F5F0E6] transition-colors"
-          >
-            <ExternalLink size={12} strokeWidth={1.5} />
+        {/* Bottom */}
+        <div style={{ padding: '1rem', borderTop: '1px solid rgba(245,240,230,0.08)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <Link href="/" target="_blank"
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', textDecoration: 'none', color: 'rgba(245,240,230,0.35)', fontSize: '12px', borderRadius: '6px', transition: 'all 150ms' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = '#F5F0E6' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(245,240,230,0.35)' }}>
+            <ExternalLink size={14} strokeWidth={1.5} />
             View Store
-          </a>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 font-sans text-xs text-[#F5F0E6]/50 hover:text-[#F5F0E6] transition-colors text-left"
-          >
-            <LogOut size={12} strokeWidth={1.5} />
+          </Link>
+          <button onClick={logout}
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'transparent', border: 'none', color: 'rgba(245,240,230,0.35)', fontSize: '12px', cursor: 'pointer', borderRadius: '6px', transition: 'all 150ms', fontFamily: 'var(--font-sans)', textAlign: 'left', width: '100%' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#F5F0E6'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(196,97,74,0.1)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(245,240,230,0.35)'; (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}>
+            <LogOut size={14} strokeWidth={1.5} />
             Logout
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto bg-[#FAFAF8]">{children}</main>
+      {/* Main */}
+      <main style={{ flex: 1, marginLeft: '240px', minHeight: '100vh', background: '#FAFAF8' }}>
+        {children}
+      </main>
     </div>
   )
 }
