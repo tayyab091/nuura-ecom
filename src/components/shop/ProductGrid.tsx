@@ -13,8 +13,8 @@ interface ProductGridProps {
 export default function ProductGrid({ products, loading }: ProductGridProps) {
   if (loading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {Array.from({ length: 8 }).map((_, i) => (
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6 md:gap-8 gap-y-12">
+        {Array.from({ length: 12 }).map((_, i) => (
           <div key={i} className="animate-pulse">
             <div className="aspect-[3/4] bg-[#EDE0D4] rounded-brand mb-4" />
             <div className="h-3 bg-[#EDE0D4] rounded w-1/3 mb-2" />
@@ -40,7 +40,7 @@ export default function ProductGrid({ products, loading }: ProductGridProps) {
       variants={staggerContainer}
       initial="hidden"
       animate="visible"
-      className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+      className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6 md:gap-8 gap-y-12"
     >
       {products.map((product) => (
         <ProductCard key={product._id} product={product} />
