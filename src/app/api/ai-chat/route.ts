@@ -90,9 +90,11 @@ export async function POST(request: Request) {
 
     console.log('Calling Hugging Face API...')
 
-    // FLAN-T5 is a text2text model and tends to be more reliable on free HF Inference
+    // NOTE: Hugging Face deprecated api-inference.huggingface.co; use the router endpoint.
+    // Ref: HF Inference Router (https://router.huggingface.co)
+    const model = 'google/flan-t5-large'
     const response = await fetch(
-      'https://api-inference.huggingface.co/models/google/flan-t5-large',
+      `https://router.huggingface.co/hf-inference/models/${model}`,
       {
         headers: {
           Authorization: `Bearer ${hfToken}`,
@@ -102,10 +104,9 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           inputs: prompt,
           parameters: {
-            max_new_tokens: 160,
-            do_sample: true,
-            temperature: 0.7,
-            top_p: 0.95,
+            // keep parameters conservative for reliability
+            max_length: 220,
+            do_sample: false,
           },
         }),
       }
@@ -137,7 +138,13 @@ export async function POST(request: Request) {
     const data = await response.json()
     console.log('HF API response:', data)
 
-    let generatedText = data[0]?.generated_text || ''
+    // Response can be either: [{ generated_text: "..." }] or { generated_text: "..." }
+    let generatedText = ''
+    if (Array.isArray(data)) {
+      generatedText = data[0]?.generated_text || ''
+    } else if (data && typeof data === 'object') {
+      generatedText = (data as any).generated_text || ''
+    }
 
     // Clean up the response
     generatedText = generatedText
