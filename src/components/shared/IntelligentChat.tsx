@@ -297,38 +297,58 @@ export default function IntelligentChat() {
         }
       }
 
+      // ===== GENERAL CONVERSATION & ADVICE =====
+      // Route general conversational queries to Gemini for intelligent responses
+      if (
+        lower.includes('routine') ||
+        lower.includes('tip') ||
+        lower.includes('advice') ||
+        lower.includes('skin') ||
+        lower.includes('face') ||
+        lower.includes('how') ||
+        lower.includes('what') ||
+        lower.includes('why') ||
+        lower.includes('help') ||
+        lower.includes('recommend') ||
+        lower.includes('best') ||
+        lower.length < 15 // Short messages like "hello", "hi", "hey"
+      ) {
+        // These will be handled by Gemini API below
+        // Just fall through to Gemini call
+      } else {
+        // If message doesn't match any patterns and is short/generic, try Gemini
+      }
+
       // ===== USE GEMINI FOR UNMATCHED QUERIES =====
       try {
-        const context = `You are Noor, Nuura's AI beauty assistant. Available products: ${allProducts.map((p) => `${p.name} (PKR ${p.price}, ${p.slug})`).join(', ')}. 
-        
-        Keep responses SHORT (2-3 sentences). Be helpful and warm. Suggest products when relevant with links like [Product Name](/product/slug). Always relate to beauty/skincare.`
-
-        const response = await fetch('/api/chat', {
+        const geminiResponse = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             messages: [
-              ...conversationRef.current.slice(-4).map((m) => ({
+              ...conversationRef.current.slice(-6).map((m) => ({
                 role: m.role === 'user' ? 'user' : 'assistant',
-                content: m.content,
+                content: m.content.substring(0, 500), // Limit context size
               })),
               { role: 'user', content: userMessage },
             ],
           }),
         })
 
-        if (response.ok) {
-          const data = await response.json()
-          if (data.response && !data.fallback) {
+        if (geminiResponse.ok) {
+          const data = await geminiResponse.json()
+          if (data.response) {
             return {
               id: Date.now().toString(),
               role: 'ai',
               content: data.response,
             }
           }
+        } else {
+          console.error('Gemini API returned non-ok status:', geminiResponse.status)
         }
       } catch (error) {
-        console.log('Gemini API unavailable, using fallback')
+        console.error('Gemini API call failed:', error)
       }
 
       // ===== DEFAULT FALLBACK =====

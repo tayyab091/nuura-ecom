@@ -25,8 +25,8 @@ export async function POST(request: Request) {
     const { messages } = await request.json()
     const apiKey = process.env.GEMINI_API_KEY
 
-    // If no API key or using placeholder, return helpful fallback
-    if (!apiKey || apiKey === 'your_gemini_key_here' || apiKey === 'AIzaSyDV2hklcqEGunNWWNdVQE-6KNz0Zt82zYw') {
+    // If no API key or using placeholder values, return helpful fallback
+    if (!apiKey || apiKey === 'your_gemini_key_here' || apiKey.includes('placeholder')) {
       return NextResponse.json({
         response: FALLBACK_RESPONSES.default,
         fallback: true,
@@ -56,7 +56,8 @@ export async function POST(request: Request) {
     )
 
     if (!response.ok) {
-      console.log(`Gemini API error: ${response.status}`)  
+      const errorData = await response.json().catch(() => ({}))
+      console.error(`Gemini API error: ${response.status}`, errorData)
       throw new Error(`Gemini API error: ${response.status}`)
     }
 
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text
     
     if (!text) {
-      console.log('Gemini returned empty response')
+      console.warn('Gemini returned empty response')
       return NextResponse.json({ response: FALLBACK_RESPONSES.default, fallback: true })
     }
 
