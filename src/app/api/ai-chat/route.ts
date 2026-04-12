@@ -1,5 +1,15 @@
 import { NextResponse } from 'next/server'
 
+type CatalogItem = {
+  slug: string
+  name: string
+  price: number
+  comparePrice?: number
+  tagline?: string
+  category?: string
+  inStock?: boolean
+}
+
 const NUURA_SYSTEM_PROMPT = `You are Noor, Nuura's intelligent AI beauty assistant for a Pakistani e-commerce brand.
 
 IMPORTANT CONTEXT:
@@ -22,13 +32,11 @@ You are knowledgeable, friendly, warm, and helpful. You help with:
 RULES:
 1. Keep responses SHORT and friendly (2-4 sentences max)
 2. Be conversational, like a knowledgeable friend
-3. For product links: mention "/product/[slug]"
-4. If asked about a product, include price in PKR
-5. Suggest Nuura products naturally when they fit the conversation
-6. For questions outside beauty/skincare, still be helpful but gently redirect
-7. Respond in the same language as the user (English or Urdu)
-8. Never make up product names or prices
-9. If you don't know something specific, admit it honestly
+3. When you reference a Nuura product, include price in PKR and a link in the form "/product/<slug>"
+4. Only recommend products that appear in the provided catalog context (if any)
+5. Respond in the same language as the user (English or Urdu)
+6. Never invent product names, prices, stock status, or policies
+7. If you don't know something specific, admit it honestly
 
 EXAMPLE RESPONSES:
 User: "What's a good skincare routine?"
@@ -42,9 +50,22 @@ Response: "I'm a beauty expert, not a coding pro! 😄 But I can definitely help
 
 Now respond to the user's question as Noor!`
 
+function formatCatalog(catalog: CatalogItem[] | undefined) {
+  if (!catalog || catalog.length === 0) return ''
+
+  const lines = catalog.slice(0, 10).map((p) => {
+    const stock = typeof p.inStock === 'boolean' ? (p.inStock ? 'in stock' : 'out of stock') : 'stock unknown'
+    const compare = p.comparePrice ? ` (was PKR ${p.comparePrice})` : ''
+    const tagline = p.tagline ? ` — ${p.tagline}` : ''
+    return `- ${p.name} — PKR ${p.price}${compare} — slug: ${p.slug} — ${stock}${tagline}`
+  })
+
+  return `\n\nNUURA CATALOG (use EXACT names/prices/slugs below; do not invent):\n${lines.join('\n')}`
+}
+
 export async function POST(request: Request) {
   try {
-    const { messages, useHuggingFace = true } = await request.json()
+    const { messages, useHuggingFace = true, catalog } = await request.json()
     const hfToken = process.env.HUGGINGFACE_TOKEN
 
     console.log('AI Chat request received. HF Token exists:', !!hfToken)
@@ -63,37 +84,39 @@ export async function POST(request: Request) {
       .map((m: any) => `${m.role === 'user' ? 'User' : 'Noor'}: ${m.content}`)
       .join('\n\n')
 
-    const prompt = `${NUURA_SYSTEM_PROMPT}\n\nConversation:\n${conversationText}\n\nNoor:`
+    const catalogText = formatCatalog(Array.isArray(catalog) ? (catalog as CatalogItem[]) : undefined)
+
+    const prompt = `${NUURA_SYSTEM_PROMPT}${catalogText}\n\nConversation:\n${conversationText}\n\nNoor:`
 
     console.log('Calling Hugging Face API...')
 
-    // Prefer a smaller model for reliability on the free inference API.
-    const modelUrl = 'https://api-inference.huggingface.co/models/google/flan-t5-base'
-
-    const response = await fetch(modelUrl, {
-      headers: {
-        Authorization: `Bearer ${hfToken}`,
-        'Content-Type': 'application/json',
-      },
-      method: 'POST',
-      body: JSON.stringify({
-        inputs: prompt,
-        parameters: {
-          max_new_tokens: 180,
-          do_sample: false,
+    // FLAN-T5 is a text2text model and tends to be more reliable on free HF Inference
+    const response = await fetch(
+      'https://api-inference.huggingface.co/models/google/flan-t5-large',
+      {
+        headers: {
+          Authorization: `Bearer ${hfToken}`,
+          'Content-Type': 'application/json',
         },
-        options: {
-          wait_for_model: true,
-        },
-      }),
-    })
+        method: 'POST',
+        body: JSON.stringify({
+          inputs: prompt,
+          parameters: {
+            max_new_tokens: 160,
+            do_sample: true,
+            temperature: 0.7,
+            top_p: 0.95,
+          },
+        }),
+      }
+    )
 
     if (!response.ok) {
       const errorData = await response.text()
       console.error('HF API error status:', response.status)
       console.error('HF API error body:', errorData)
 
-      // Check if it's a loading error
+      // Check if it's a loading/rate-limit error
       if (errorData.includes('currently loading')) {
         return NextResponse.json({
           response: "I'm waking up! Give me a second... 🌙 Please try again in a moment!",
@@ -101,28 +124,20 @@ export async function POST(request: Request) {
         })
       }
 
-      // Graceful degradation for rate limits / transient errors.
-      if (response.status === 429 || response.status >= 500) {
+      if (response.status === 429) {
         return NextResponse.json({
-          response:
-            "I'm a bit busy right now — can you try again in a moment? If you tell me your skin type + budget, I’ll recommend the best Nuura options.",
-          success: false,
-          error: `HF transient error (${response.status})`,
+          response: "I'm getting a lot of requests right now. Please try again in a moment 🌿",
+          rateLimited: true,
         })
       }
 
-      return NextResponse.json({
-        response:
-          "I couldn't generate a response right now. Try rephrasing your question (for example: 'recommend products under 3000 for acne').",
-        success: false,
-        error: `HF error (${response.status})`,
-      })
+      throw new Error(`HF API error: ${response.status} - ${errorData}`)
     }
 
     const data = await response.json()
     console.log('HF API response:', data)
 
-    let generatedText = data?.[0]?.generated_text || ''
+    let generatedText = data[0]?.generated_text || ''
 
     // Clean up the response
     generatedText = generatedText
@@ -132,7 +147,7 @@ export async function POST(request: Request) {
       .trim()
 
     if (!generatedText || generatedText.length < 5) {
-      generatedText = "I'm thinking... 🤔 Could you say more about what you need?"
+      generatedText = "Could you tell me a bit more (your skin type + what you're targeting)? I’ll recommend the best Nuura option."
     }
 
     // Limit to max 2-3 sentences
@@ -151,8 +166,7 @@ export async function POST(request: Request) {
     console.error('AI Chat error:', error)
     return NextResponse.json({
       response:
-        "I'm having a technical moment — please try again in a bit. If you tell me what you're shopping for, I can still help narrow down products.",
-      success: false,
+        "I’m having trouble connecting to the AI right now. Please try again in a moment — or tell me what you’re looking for (acne, glow, dryness, dark circles) and I’ll guide you. 🌿",
       error: error instanceof Error ? error.message : 'Unknown error',
     })
   }

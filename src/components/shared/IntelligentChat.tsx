@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sparkles, X, Send, ExternalLink } from 'lucide-react'
-import { useCartStore } from '@/store/cartStore'
 import Link from 'next/link'
 
 interface Product {
@@ -45,7 +44,6 @@ export default function IntelligentChat() {
   const [allProducts, setAllProducts] = useState<Product[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const cartStore = useCartStore()
   const conversationRef = useRef<ChatMessage[]>([])
 
   // ========== PRODUCT DATA LOADING ==========
@@ -100,6 +98,16 @@ What would you like help with?`,
     (query: string): ProductSearchResult => {
       const lower = query.toLowerCase()
 
+      // Tokenize query for more forgiving matching (and avoid matching everything)
+      const stopwords = new Set([
+        'a','an','the','and','or','to','for','of','in','on','at','with','me','my','your','you','i','we','us',
+        'show','find','search','looking','want','need','please','help','some','any','give','tell',
+      ])
+      const tokens = lower
+        .split(/[^a-z0-9]+/)
+        .map((t) => t.trim())
+        .filter((t) => t.length >= 3 && !stopwords.has(t))
+
       // Parse price filters
       let minPrice = 0
       let maxPrice = Infinity
@@ -118,19 +126,33 @@ What would you like help with?`,
       }
 
       // Extract category
-      if (lower.includes('self-care') || lower.includes('skincare') || lower.includes('beauty')) {
+      if (lower.includes('self-care') || lower.includes('skincare') || lower.includes('beauty') || lower.includes('skin')) {
         categoryFilter = 'self-care'
       } else if (lower.includes('accessor') || lower.includes('bag') || lower.includes('clutch')) {
         categoryFilter = 'accessories'
       }
 
+      // If the user is explicitly asking to browse products, show the catalog.
+      // (Do not treat unrelated short messages as product searches.)
+      const isBrowseQuery = /\bproducts?\b/.test(lower) && tokens.length === 0
+      if (
+        isBrowseQuery ||
+        lower.includes('all product') ||
+        lower.includes('all products') ||
+        lower.includes('everything') ||
+        lower.trim() === 'show me products'
+      ) {
+        const results = allProducts.slice(0, 10)
+        return { products: results, query, filters: { minPrice, maxPrice, category: categoryFilter } }
+      }
+
       // Search logic
       let results = allProducts.filter((p) => {
+        const haystack = `${p.name} ${p.tagline} ${p.description} ${p.tags.join(' ')}`.toLowerCase()
         const matchesText =
+          (tokens.length > 0 && tokens.some((t) => haystack.includes(t))) ||
           p.name.toLowerCase().includes(lower) ||
-          p.tagline.toLowerCase().includes(lower) ||
-          p.description.toLowerCase().includes(lower) ||
-          p.tags.some((t) => lower.includes(t))
+          p.slug.toLowerCase().includes(lower)
 
         const matchesPrice = p.price >= minPrice && p.price <= maxPrice
         const matchesCategory = !categoryFilter || p.category === categoryFilter
@@ -145,61 +167,16 @@ What would you like help with?`,
       if (lower.includes('best seller') || lower.includes('popular') || lower.includes('trending')) {
         results = allProducts.filter((p) => p.isFeatured || p.isNewDrop)
       }
-      if (
-        lower.trim() === 'products' ||
-        lower.trim() === 'product' ||
-        lower.trim() === 'all products' ||
-        lower.trim() === 'all product' ||
-        lower.includes('all product') ||
-        lower.includes('everything') ||
-        lower === 'show me products' ||
-        lower === 'show products' ||
-        lower === 'show all products' ||
-        lower === 'catalog' ||
-        lower === 'catalogue'
-      ) {
-        results = allProducts
+
+      // If we still have zero tokens (e.g. "huh", "ok"), avoid accidental matches.
+      if (tokens.length === 0 && !/\bproducts?\b/.test(lower)) {
+        results = []
       }
 
       return { products: results.slice(0, 10), query, filters: { minPrice, maxPrice, category: categoryFilter } }
     },
     [allProducts]
   )
-
-  const hasProductIntent = useCallback((text: string) => {
-    const lower = text.toLowerCase().trim()
-    if (!lower) return false
-
-    return (
-      lower === 'products' ||
-      lower === 'product' ||
-      lower.includes('show') ||
-      lower.includes('find') ||
-      lower.includes('search') ||
-      lower.includes('recommend') ||
-      lower.includes('suggest') ||
-      lower.includes('best seller') ||
-      lower.includes('popular') ||
-      lower.includes('trending') ||
-      lower.includes('new') ||
-      lower.includes('latest') ||
-      lower.includes('under') ||
-      lower.includes('over') ||
-      lower.includes('between') ||
-      lower.includes('pkr') ||
-      lower.includes('price') ||
-      lower.includes('category') ||
-      lower.includes('skincare') ||
-      lower.includes('self-care') ||
-      lower.includes('accessories') ||
-      allProducts.some(
-        (p) =>
-          lower.includes(p.slug) ||
-          lower.includes(p.name.toLowerCase()) ||
-          p.tags.some((t) => lower.includes(t))
-      )
-    )
-  }, [allProducts])
 
   // ========== PRODUCT RECOMMENDATION ==========
   const getRelatedProducts = useCallback(
@@ -226,37 +203,31 @@ What would you like help with?`,
     async (userMessage: string): Promise<ChatMessage> => {
       const lower = userMessage.toLowerCase()
 
-      // Attach product cards whenever we can detect product intent.
-      // The textual reply should come from the AI, not hardcoded templates.
-      let attachedProducts: Product[] | undefined
-      if (hasProductIntent(userMessage)) {
-        const results = searchProducts(userMessage)
-        if (results.products.length > 0) {
-          attachedProducts = results.products
-        } else if (allProducts.length > 0 && (lower.trim() === 'products' || lower.trim() === 'product')) {
-          attachedProducts = allProducts.slice(0, 10)
-        }
-      }
-
+      // Attach product cards when the user is browsing/searching or clearly mentions a product.
       const mentioned = allProducts.find(
         (p) =>
           lower.includes(p.slug) ||
           lower.includes(p.name.toLowerCase()) ||
-          p.tags.some((t) => lower.includes(t))
+          p.tags.some((t) => lower.includes(t.toLowerCase()))
       )
-      if (mentioned) {
-        const related = getRelatedProducts(mentioned.slug)
-        attachedProducts = [mentioned, ...related]
-      }
+      const searchResults = searchProducts(userMessage)
+      const related = mentioned ? getRelatedProducts(mentioned.slug) : []
 
-      const productsContext = (attachedProducts ?? [])
-        .slice(0, 10)
-        .map(
-          (p) =>
-            `- ${p.name} (slug: ${p.slug}, PKR ${p.price}, ${p.inStock ? `in stock: ${p.stockCount}` : 'out of stock'})`
-        )
-        .join('\n')
+      const productsForCards = mentioned
+        ? [mentioned, ...related].slice(0, 6)
+        : searchResults.products
 
+      const catalogForAI = productsForCards.slice(0, 8).map((p) => ({
+        slug: p.slug,
+        name: p.name,
+        price: p.price,
+        comparePrice: p.comparePrice,
+        tagline: p.tagline,
+        category: p.category,
+        inStock: p.inStock,
+      }))
+
+      // ===== AI-FIRST RESPONSE =====
       try {
         const aiResponse = await fetch('/api/ai-chat', {
           method: 'POST',
@@ -267,15 +238,10 @@ What would you like help with?`,
                 role: m.role === 'user' ? 'user' : 'assistant',
                 content: m.content.substring(0, 300),
               })),
-              {
-                role: 'user',
-                content:
-                  productsContext.length > 0
-                    ? `${userMessage}\n\n(For your reference, here are relevant Nuura products you can recommend with links like /product/[slug]:\n${productsContext})`
-                    : userMessage,
-              },
+              { role: 'user', content: userMessage },
             ],
             useHuggingFace: true,
+            catalog: catalogForAI,
           }),
         })
 
@@ -286,7 +252,7 @@ What would you like help with?`,
               id: Date.now().toString(),
               role: 'ai',
               content: data.response,
-              products: attachedProducts,
+              products: productsForCards.length > 0 ? productsForCards : undefined,
             }
           }
         }
@@ -294,16 +260,18 @@ What would you like help with?`,
         console.error('AI Chat error:', error)
       }
 
-      // Minimal fallback if the AI provider is unavailable.
+      // ===== MINIMAL FALLBACK (only if AI fails) =====
       return {
         id: Date.now().toString(),
         role: 'ai',
         content:
-          "I'm having trouble reaching my AI right now — please try again in a moment. If you tell me your skin type + budget, I can recommend the best Nuura options.",
-        products: attachedProducts,
+          productsForCards.length > 0
+            ? `Here are a few Nuura picks you can tap to view. Tell me your skin type (oily/dry/combination) or what you're targeting (acne, dark circles, glow, dryness), and I'll recommend the best option.`
+            : `I'm having trouble reaching the AI right now. Could you rephrase your question (or ask about products, skincare, shipping, or orders)?`,
+        products: productsForCards.length > 0 ? productsForCards : undefined,
       }
     },
-    [allProducts, searchProducts, getRelatedProducts, hasProductIntent]
+    [allProducts, searchProducts, getRelatedProducts]
   )
 
   // ========== SEND MESSAGE ==========
@@ -325,9 +293,6 @@ What would you like help with?`,
       isTyping: true,
     }
     setMessages((prev) => [...prev, typingMsg])
-
-    // Simulate slight delay for natural feel (HF inference takes time)
-    await new Promise((resolve) => setTimeout(resolve, 800))
 
     const response = await processUserMessage(userText)
     setMessages((prev) => prev.filter((m) => m.id !== typingMsg.id) .concat(response))
@@ -363,6 +328,7 @@ What would you like help with?`,
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.3 }}
+            data-lenis-prevent
             style={{
               position: 'absolute',
               bottom: '4.5rem',
@@ -414,6 +380,7 @@ What would you like help with?`,
 
             {/* Messages */}
             <div
+              data-lenis-prevent
               style={{
                 flex: 1,
                 minHeight: 0,
@@ -425,7 +392,12 @@ What would you like help with?`,
                 gap: '1rem',
                 backgroundColor: '#FAFAF8',
                 scrollBehavior: 'smooth',
+                overscrollBehavior: 'contain',
+                WebkitOverflowScrolling: 'touch',
+                touchAction: 'pan-y',
               }}
+              onWheel={(e) => e.stopPropagation()}
+              onTouchMove={(e) => e.stopPropagation()}
               className="nuura-chat-scroll"
             >
               {messages.map((msg) => (

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { cormorant, dmSans, italiana } from '@/lib/fonts'
 import { SITE_CONFIG } from '@/lib/constants'
 import QueryProvider from '@/providers/QueryProvider'
+import SmoothScrollProvider from '@/providers/SmoothScrollProvider'
 import { CustomCursor } from '@/components/shared/CustomCursor'
 import { LoadingScreen } from '@/components/shared/LoadingScreen'
 import IntelligentChat from '@/components/shared/IntelligentChat'
@@ -31,12 +32,14 @@ export default function RootLayout({
       className={`${cormorant.variable} ${dmSans.variable} ${italiana.variable}`}
     >
       <body>
-        <QueryProvider>
-          <LoadingScreen />
-          <CustomCursor />
-          {children}
-          <IntelligentChat />
-        </QueryProvider>
+        <SmoothScrollProvider>
+          <QueryProvider>
+            <LoadingScreen />
+            <CustomCursor />
+            {children}
+            <IntelligentChat />
+          </QueryProvider>
+        </SmoothScrollProvider>
       </body>
     </html>
   )
