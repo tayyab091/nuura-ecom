@@ -178,7 +178,12 @@ What would you like help with?`,
       }
 
       // Helpful fallback: "product for skin" / "skincare" often means "show self-care".
-      if (results.length === 0 && categoryFilter === 'self-care' && (lower.includes('skin') || lower.includes('skincare'))) {
+      if (
+        results.length === 0 &&
+        categoryFilter === 'self-care' &&
+        (lower.includes('skin') || lower.includes('skincare')) &&
+        /\b(products?|shop|browse|show)\b/.test(lower)
+      ) {
         results = allProducts.filter((p) => p.category === 'self-care')
       }
 
@@ -192,22 +197,74 @@ What would you like help with?`,
     [allProducts]
   )
 
-  // ========== PRODUCT RECOMMENDATION ==========
-  const getRelatedProducts = useCallback(
-    (productSlug: string): Product[] => {
-      const product = allProducts.find((p) => p.slug === productSlug)
-      if (!product) return []
+  const pickMostRelevantProduct = useCallback(
+    (query: string): { product?: Product; score: number } => {
+      const lower = query.toLowerCase()
+      if (!allProducts || allProducts.length === 0) return { product: undefined, score: 0 }
 
-      // Find related products: same category, similar tags, or featured
-      return allProducts
-        .filter((p) => p.slug !== productSlug)
-        .filter(
-          (p) =>
-            p.category === product.category ||
-            p.tags.some((t) => product.tags.includes(t)) ||
-            p.isFeatured
-        )
-        .slice(0, 3)
+      const adviceIntent = /(skincare|skin\s*type|routine|puffiness|puffy|depuff|swollen|swelling|acne|pimple|pimples|breakout|dry|dryness|dehydrated|flaky|glow|dull|dullness|dark\s*circles|under\s*eye|undereye)/i.test(
+        lower
+      )
+
+      const stop = new Set([
+        'a','an','the','and','or','to','for','of','in','on','at','with','me','my','your','you','i','we','us',
+        'how','are','what','when','where','why','who','can','could','would','should','will','wont','dont','does','did',
+        'ok','okay','yeah','yep','nope','yes','no','hi','hello','hey','thanks','thank','sorry',
+        'show','find','search','looking','want','need','please','help','some','any','give','tell',
+        'product','products','shop','browse','buy','price','prices','pkr','rs','rupees',
+        'routine','skincare','skin','advice','tips','tip',
+      ])
+
+      const keywords = lower
+        .split(/[^a-z0-9]+/)
+        .map((t) => t.trim())
+        .filter((t) => t.length >= 3 && !stop.has(t) && !/^\d+$/.test(t))
+
+      const hasPuffiness = /(puffiness|puffy|depuff|swollen|swelling)/i.test(lower)
+      const hasAcne = /(acne|pimple|pimples|breakout|breakouts|spots)/i.test(lower)
+      const hasDryness = /(dry|dryness|dehydrated|flaky)/i.test(lower)
+      const hasGlow = /(glow|dull|dullness|brighten|brightening)/i.test(lower)
+      const hasDarkCircles = /(dark\s*circles|under\s*eye|undereye)/i.test(lower)
+
+      let best: Product | undefined
+      let bestScore = 0
+
+      for (const p of allProducts) {
+        let score = 0
+        const name = p.name.toLowerCase()
+        const slug = p.slug.toLowerCase()
+        const tagline = (p.tagline || '').toLowerCase()
+        const category = (p.category || '').toLowerCase()
+        const tags = (p.tags || []).map((t) => t.toLowerCase())
+
+        for (const k of keywords) {
+          if (name.includes(k)) score += 5
+          if (slug.includes(k)) score += 4
+          if (tagline.includes(k)) score += 2
+          if (category.includes(k)) score += 1
+          if (tags.some((t) => t.includes(k))) score += 6
+        }
+
+        if (adviceIntent) {
+          if (category === 'self-care') score += 2
+          else score -= 2
+        }
+
+        if (hasPuffiness && (tags.includes('puffiness') || tags.includes('depuff') || tags.includes('massage'))) score += 12
+        if (hasDarkCircles && (tags.includes('puffiness') || tags.includes('depuff') || tags.includes('facial'))) score += 6
+        if (hasAcne && (tags.includes('cleanse') || tags.includes('pores'))) score += 8
+        if (hasDryness && (tags.includes('hydration') || tags.includes('moisturizer') || tags.includes('cream'))) score += 8
+        if (hasGlow && (tags.includes('glow') || tags.includes('facial'))) score += 6
+
+        if (p.isFeatured) score += 1
+
+        if (score > bestScore) {
+          bestScore = score
+          best = p
+        }
+      }
+
+      return { product: best, score: bestScore }
     },
     [allProducts]
   )
@@ -225,11 +282,28 @@ What would you like help with?`,
           p.tags.some((t) => lower.includes(t.toLowerCase()))
       )
       const searchResults = searchProducts(userMessage)
-      const related = mentioned ? getRelatedProducts(mentioned.slug) : []
 
-      const productsForCards = mentioned
-        ? [mentioned, ...related].slice(0, 6)
-        : searchResults.products
+      const browseIntent =
+        /\b(products?|shop|browse|show|under|over|between|price|pkr|rs|rupees|cheapest|budget)\b/i.test(lower)
+
+      const adviceIntent =
+        /(skincare|skin\s*type|routine|puffiness|puffy|depuff|swollen|swelling|acne|pimple|pimples|breakout|dry|dryness|dehydrated|flaky|glow|dull|dullness|dark\s*circles|under\s*eye|undereye)/i.test(
+          lower
+        )
+
+      let productsForCards: Product[] = []
+
+      if (mentioned) {
+        productsForCards = [mentioned]
+      } else if (browseIntent) {
+        productsForCards = searchResults.products.slice(0, 6)
+      } else {
+        const best = pickMostRelevantProduct(userMessage)
+        const minScore = adviceIntent ? 3 : 10
+        if (best.product && best.score >= minScore) {
+          productsForCards = [best.product]
+        }
+      }
 
       const fullCatalogForAI = allProducts.slice(0, 10).map((p) => ({
         slug: p.slug,
@@ -285,7 +359,7 @@ What would you like help with?`,
         products: productsForCards.length > 0 ? productsForCards : undefined,
       }
     },
-    [allProducts, searchProducts, getRelatedProducts]
+    [allProducts, searchProducts, pickMostRelevantProduct]
   )
 
   // ========== SEND MESSAGE ==========
