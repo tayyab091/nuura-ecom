@@ -20,7 +20,14 @@ export default function ShopClient({ initialProducts }: ShopClientProps) {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await fetch('/api/products')
+        // Add timestamp to bypass cache
+        const timestamp = new Date().getTime()
+        const response = await fetch(`/api/products?t=${timestamp}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+          },
+        })
         if (!response.ok) throw new Error('Failed to fetch')
         const data = await response.json()
         if (data.products && data.products.length > 0) {

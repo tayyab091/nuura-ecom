@@ -22,7 +22,11 @@ export async function GET(request: Request) {
     
     // If DB returns data, use it; otherwise fall back to mock
     if (products && products.length > 0) {
-      return NextResponse.json({ products })
+      return NextResponse.json({ products }, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        },
+      })
     }
     throw new Error('No products in database, using mock data')
   } catch {
@@ -31,7 +35,11 @@ export async function GET(request: Request) {
     if (category) filtered = filtered.filter((p) => p.category === category)
     if (featured) filtered = filtered.filter((p) => p.isFeatured)
     if (newDrop) filtered = filtered.filter((p) => p.isNewDrop)
-    return NextResponse.json({ products: filtered.slice(0, limit) })
+    return NextResponse.json({ products: filtered.slice(0, limit) }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      },
+    })
   }
 }
 
