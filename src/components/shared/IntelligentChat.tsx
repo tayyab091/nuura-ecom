@@ -413,6 +413,22 @@ What would you like help with?`,
           content: skincareAdvice.acne,
         }
       }
+      if (lower.includes('hard skin') || lower.includes('rough skin') || lower.includes('dry skin') || lower.includes('dehydrat')) {
+        return {
+          id: Date.now().toString(),
+          role: 'ai',
+          content: `Treating Dry & Rough Skin 💧✨
+- Exfoliate gently 2x per week to remove dead skin
+- Hydrate with a rich moisturizer like our Night Cream (PKR 2200)
+- Our Night Cream has hyaluronic acid for deep hydration
+- Use a hydrating serum before moisturizer
+- Drink plenty of water (8 glasses daily)
+- Avoid harsh soaps & hot water
+- Consider gua sha massage for better circulation
+
+Consistent moisturizing = soft, glowing skin!`,
+        }
+      }
       if (lower.includes('oil') || lower.includes('serum')) {
         return {
           id: Date.now().toString(),
