@@ -52,6 +52,23 @@ export default function IntelligentChat() {
 
   // ========== SKINCARE KNOWLEDGE BASE ==========
   const skincareAdvice: Record<string, string> = {
+    acne: `Fighting Acne & Pimples 💪✨
+- Don't over-wash (causes more oil production)
+- Use gentle, non-comedogenic products  
+- Our Night Cream is non-comedogenic & moisturizing
+- Never squeeze or pick at pimples
+- Stay hydrated & reduce stress
+- For severe acne, consult a dermatologist
+
+Consistency is key to clear skin!`,
+    oils: `About Oils for Skincare 🌿💧
+- Natural oils can be great (jojoba, rose, argan)
+- Each oil has different benefits
+- Test patch first to avoid irritation
+- Layer with moisturizer for better absorption
+- Our Night Cream has peptides & hyaluronic acid
+
+The key is finding what works for YOUR skin!`,
     morning: `Morning Glow Routine ⛅✨
 1. Cleanse with water or mild cleanser
 2. Apply Rose Quartz Gua Sha for circulation
@@ -388,6 +405,22 @@ What would you like help with?`,
         }
       }
 
+      // ===== COMMON SKIN ISSUES =====
+      if (lower.includes('acne') || lower.includes('pimple') || lower.includes('breakout') || lower.includes('spot') || (lower.includes('cure') && lower.includes('pimple'))) {
+        return {
+          id: Date.now().toString(),
+          role: 'ai',
+          content: skincareAdvice.acne,
+        }
+      }
+      if (lower.includes('oil') || lower.includes('serum')) {
+        return {
+          id: Date.now().toString(),
+          role: 'ai',
+          content: skincareAdvice.oils,
+        }
+      }
+
       // ===== GENERAL GREETINGS =====
       if (lower.trim() === 'hello' || lower.trim() === 'hi' || lower.trim() === 'hey' || lower.includes('hello')) {
         return {
@@ -494,8 +527,24 @@ What would you like help with?`,
   }
 
   return (
-    <div style={{ position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 9999 }}>
-      <AnimatePresence>
+    <>
+      <style>{`
+        .nuura-chat-scroll::-webkit-scrollbar {
+          width: 6px;
+        }
+        .nuura-chat-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .nuura-chat-scroll::-webkit-scrollbar-thumb {
+          background: #D4A853;
+          border-radius: 3px;
+        }
+        .nuura-chat-scroll::-webkit-scrollbar-thumb:hover {
+          background: #C49543;
+        }
+      `}</style>
+      <div style={{ position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 9999 }}>
+      <AnimatePresence mode="sync">
         {isOpen && (
           <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -563,7 +612,9 @@ What would you like help with?`,
                 flexDirection: 'column',
                 gap: '1rem',
                 backgroundColor: '#FAFAF8',
+                scrollBehavior: 'smooth',
               }}
+              className="nuura-chat-scroll"
             >
               {messages.map((msg) => (
                 <div
@@ -716,6 +767,7 @@ What would you like help with?`,
       >
         {isOpen ? <X size={24} /> : <Sparkles size={24} />}
       </motion.button>
-    </div>
+      </div>
+    </>
   )
 }
