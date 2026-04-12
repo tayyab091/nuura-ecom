@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles, X, Send } from 'lucide-react'
+import { Sparkles, X, Send, ExternalLink } from 'lucide-react'
 import { useCartStore } from '@/store/cartStore'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 interface Product {
   _id: string
@@ -29,6 +30,7 @@ interface ChatMessage {
   content: string
   products?: Product[]
   isTyping?: boolean
+  showProducts?: boolean
 }
 
 interface ProductSearchResult {
@@ -47,6 +49,46 @@ export default function IntelligentChat() {
   const router = useRouter()
   const cartStore = useCartStore()
   const conversationRef = useRef<ChatMessage[]>([])
+
+  // ========== SKINCARE KNOWLEDGE BASE ==========
+  const skincareAdvice: Record<string, string> = {
+    morning: `Morning Glow Routine ⛅✨
+1. Cleanse with water or mild cleanser
+2. Apply Rose Quartz Gua Sha for circulation
+3. Moisturize with Night Cream (works anytime!)
+4. Don't forget SPF if going out
+
+Our products help you glow naturally!`,
+    night: `Nighttime Recovery Routine 🌙✨
+1. Remove makeup gently
+2. Cleanse face thoroughly
+3. Apply Night Cream - our hero product!
+4. Use Gua Sha for lymphatic drainage
+5. Sleep your way to glowing skin`,
+    hydration: `Hydration is Key! 💧✨
+- Drink 8 glasses of water daily
+- Use hydrating moisturizers
+- Apply serums to damp skin for better absorption
+- Use Gua Sha to boost circulation
+
+Our Night Cream has hyaluronic acid for deep hydration!`,
+    glow: `Glow-Getting Tips ✨🌟
+1. Consistent skincare routine
+2. Use Rose Quartz Gua Sha daily for lymphatic drainage
+3. Stay hydrated
+4. Get enough sleep
+5. Moisturize every night with Night Cream
+
+Result: Plump, glowing, healthy skin!`,
+    mens: `Men's Skincare Tips 💪✨
+Men's skin needs care too!
+- Men have thicker skin but more oil production
+- Daily cleansing prevents breakouts
+- Moisturizing keeps skin healthy
+- Nuura Night Cream works for all genders!
+
+Try our Night Cream - PKR 2,200. Restores, nourishes, rejuvenates.`,
+  }
 
   // ========== PRODUCT DATA LOADING ==========
   useEffect(() => {
@@ -74,7 +116,16 @@ export default function IntelligentChat() {
       const welcome: ChatMessage = {
         id: 'welcome-' + Date.now(),
         role: 'ai',
-        content: `Hello! 👋 I'm Noor, Nuura's AI shopping assistant. I can help you with:\n\n🔍 **Search & Discovery** - Find products by name, price, or category\n💎 **Smart Recommendations** - Get suggestions based on what you like\n📦 **Order Tracking** - Track your orders in real-time\n🛒 **Cart Help** - Add/remove items, apply coupons\n❓ **FAQs** - Shipping, returns, payments\n\nWhat would you like help with?`,
+        content: `Hello! 👋 I'm Noor, Nuura's AI shopping assistant. I can help you with:
+
+🔍 **Search & Discovery** - Find products by name, price, or category
+💎 **Smart Recommendations** - Get personalized suggestions
+📖 **Skincare Advice** - Routines, tips, tricks for your skin type
+📦 **Order Tracking** - Track your orders in real-time
+🛒 **Cart Help** - Add/remove items, apply coupons
+❓ **FAQs** - Shipping, returns, payments
+
+What would you like help with?`,
       }
       setMessages([welcome])
       conversationRef.current = [welcome]
@@ -297,58 +348,76 @@ export default function IntelligentChat() {
         }
       }
 
-      // ===== GENERAL CONVERSATION & ADVICE =====
-      // Route general conversational queries to Gemini for intelligent responses
-      if (
-        lower.includes('routine') ||
-        lower.includes('tip') ||
-        lower.includes('advice') ||
-        lower.includes('skin') ||
-        lower.includes('face') ||
-        lower.includes('how') ||
-        lower.includes('what') ||
-        lower.includes('why') ||
-        lower.includes('help') ||
-        lower.includes('recommend') ||
-        lower.includes('best') ||
-        lower.length < 15 // Short messages like "hello", "hi", "hey"
-      ) {
-        // These will be handled by Gemini API below
-        // Just fall through to Gemini call
-      } else {
-        // If message doesn't match any patterns and is short/generic, try Gemini
+      // ===== SKINCARE ADVICE =====
+      if (lower.includes('morning') && lower.includes('routine')) {
+        return {
+          id: Date.now().toString(),
+          role: 'ai',
+          content: skincareAdvice.morning,
+        }
+      }
+      if (lower.includes('night') && lower.includes('routine')) {
+        return {
+          id: Date.now().toString(),
+          role: 'ai',
+          content: skincareAdvice.night,
+          products: allProducts.filter(p => p.slug === 'night-cream'),
+        }
+      }
+      if (lower.includes('hydrat')) {
+        return {
+          id: Date.now().toString(),
+          role: 'ai',
+          content: skincareAdvice.hydration,
+        }
+      }
+      if ((lower.includes('glow') || lower.includes('glowing')) && lower.includes('skin')) {
+        return {
+          id: Date.now().toString(),
+          role: 'ai',
+          content: skincareAdvice.glow,
+          products: allProducts.filter(p => ['rose-quartz-gua-sha', 'night-cream'].includes(p.slug)),
+        }
+      }
+      if ((lower.includes('men') || lower.includes('male')) && lower.includes('skin')) {
+        return {
+          id: Date.now().toString(),
+          role: 'ai',
+          content: skincareAdvice.mens,
+          products: allProducts.filter(p => p.slug === 'night-cream'),
+        }
       }
 
-      // ===== USE GEMINI FOR UNMATCHED QUERIES =====
-      try {
-        const geminiResponse = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: [
-              ...conversationRef.current.slice(-6).map((m) => ({
-                role: m.role === 'user' ? 'user' : 'assistant',
-                content: m.content.substring(0, 500), // Limit context size
-              })),
-              { role: 'user', content: userMessage },
-            ],
-          }),
-        })
-
-        if (geminiResponse.ok) {
-          const data = await geminiResponse.json()
-          if (data.response) {
-            return {
-              id: Date.now().toString(),
-              role: 'ai',
-              content: data.response,
-            }
-          }
-        } else {
-          console.error('Gemini API returned non-ok status:', geminiResponse.status)
+      // ===== GENERAL GREETINGS =====
+      if (lower === 'hello' || lower === 'hi' || lower === 'hey' || lower.includes('hello')) {
+        return {
+          id: Date.now().toString(),
+          role: 'ai',
+          content: `Hey there! 👋 Welcome to Nuura!\n\nLooking for something? I can help with:\n• Product search & discovery\n• Skincare routines & advice\n• Order tracking\n• Shipping, returns & payments\n\nWhat interests you?`,
         }
-      } catch (error) {
-        console.error('Gemini API call failed:', error)
+      }
+      if (lower === 'how are you' || lower === 'howa' || lower.includes('how are you')) {
+        return {
+          id: Date.now().toString(),
+          role: 'ai',
+          content: `I'm great, thanks for asking! ✨ Even better now that I can help you find your perfect Nuura product!\n\nWhat brings you here today?`,
+        }
+      }
+      if (lower === 'help' || lower.includes('help me')) {
+        return {
+          id: Date.now().toString(),
+          role: 'ai',
+          content: `I'm here to help! 🌿\n\nI can assist with:\n• Finding products\n• Skincare tips & routines\n• Shipping & delivery questions\n• Payment & coupon info\n• Order tracking\n\nWhat do you need?`,
+        }
+      }
+
+      // ===== FALLBACK RESPONSES FOR COMMON QUESTIONS =====
+      if (lower.includes('thanks') || lower.includes('thank you')) {
+        return {
+          id: Date.now().toString(),
+          role: 'ai',
+          content: `You're welcome! 💚 Enjoy your Nuura products and let your natural glow shine!`,
+        }
       }
 
       // ===== DEFAULT FALLBACK =====
@@ -486,6 +555,51 @@ export default function IntelligentChat() {
                     {msg.isTyping ? '⏳ ' : ''}
                     {msg.content}
                   </div>
+                  
+                  {msg.products && msg.products.length > 0 && (
+                    <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      {msg.products.map((product) => (
+                        <Link key={product._id} href={`/product/${product.slug}`} style={{ textDecoration: 'none' }}>
+                          <motion.div
+                            whileHover={{ y: -2 }}
+                            style={{
+                              background: '#FFFFFF',
+                              border: '1px solid #E8E0D8',
+                              borderRadius: '12px',
+                              padding: '1rem',
+                              cursor: 'pointer',
+                              display: 'block',
+                            }}
+                          >
+                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                              <img
+                                src={product.images[0]}
+                                alt={product.name}
+                                style={{ width: '60px', height: '60px', borderRadius: '8px', objectFit: 'cover' }}
+                              />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontWeight: 600, fontSize: '14px', color: '#1A1714', marginBottom: '0.25rem' }}>
+                                  {product.name}
+                                </div>
+                                <div style={{ fontSize: '12px', color: '#666', marginBottom: '0.5rem' }}>{product.tagline}</div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <div>
+                                    <span style={{ fontWeight: 'bold', color: '#1B2E1F', fontSize: '14px' }}>PKR {product.price}</span>
+                                    {product.comparePrice && (
+                                      <span style={{ textDecoration: 'line-through', marginLeft: '0.5rem', color: '#999', fontSize: '12px' }}>
+                                        {product.comparePrice}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <ExternalLink size={14} style={{ color: '#D4A853', flexShrink: 0 }} />
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
               <div ref={messagesEndRef} />
