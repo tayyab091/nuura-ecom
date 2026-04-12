@@ -410,7 +410,7 @@ function Reviews() {
         </motion.div>
 
         <div style={{ display:'grid', gridTemplateColumns:`repeat(${visibleCount},1fr)`, gap:'1.5rem' }}>
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="popLayout">
             {visible.map((r,i) => (
               <motion.div key={`${active}-${i}`}
                 initial={{ opacity:0, x:-150 }}
