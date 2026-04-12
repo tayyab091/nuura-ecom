@@ -555,11 +555,14 @@ What would you like help with?`,
             <div
               style={{
                 flex: 1,
+                minHeight: 0,
                 overflowY: 'auto',
+                overflowX: 'hidden',
                 padding: '1.5rem',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '1rem',
+                backgroundColor: '#FAFAF8',
               }}
             >
               {messages.map((msg) => (

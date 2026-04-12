@@ -47,7 +47,10 @@ export async function POST(request: Request) {
     const { messages, useHuggingFace = true } = await request.json()
     const hfToken = process.env.HUGGINGFACE_TOKEN
 
+    console.log('AI Chat request received. HF Token exists:', !!hfToken)
+
     if (!hfToken || !useHuggingFace) {
+      console.error('No HF token or useHuggingFace is false')
       return NextResponse.json({
         response: "I'm having a technical moment! Please try again or WhatsApp us @nuura.pk 🌿",
         error: 'No HF token available',
@@ -55,16 +58,18 @@ export async function POST(request: Request) {
     }
 
     // Format messages for Hugging Face
-    const formattedMessages = [...messages].slice(-6) // Last 6 messages for context
+    const formattedMessages = [...messages].slice(-6)
     const conversationText = formattedMessages
       .map((m: any) => `${m.role === 'user' ? 'User' : 'Noor'}: ${m.content}`)
       .join('\n\n')
 
     const prompt = `${NUURA_SYSTEM_PROMPT}\n\nConversation:\n${conversationText}\n\nNoor:`
 
-    // Call Hugging Face Inference API
+    console.log('Calling Hugging Face API...')
+
+    // Try with a different, more stable model
     const response = await fetch(
-      'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1',
+      'https://api-inference.huggingface.co/models/google/flan-t5-large',
       {
         headers: {
           Authorization: `Bearer ${hfToken}`,
@@ -74,48 +79,55 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           inputs: prompt,
           parameters: {
-            max_new_tokens: 200,
-            temperature: 0.7,
-            top_p: 0.9,
-            do_sample: true,
+            max_length: 200,
+            do_sample: false,
           },
         }),
       }
     )
 
     if (!response.ok) {
-      const error = await response.json()
-      console.error('Hugging Face API error:', error)
+      const errorData = await response.text()
+      console.error('HF API error status:', response.status)
+      console.error('HF API error body:', errorData)
 
-      // If model is loading, wait a bit and retry
-      if (error.error?.includes('currently loading')) {
+      // Check if it's a loading error
+      if (errorData.includes('currently loading')) {
         return NextResponse.json({
-          response:
-            "I'm waking up! Give me a second... 🌙 Please try again in a moment!",
+          response: "I'm waking up! Give me a second... 🌙 Please try again in a moment!",
           loading: true,
         })
       }
 
-      throw new Error(`HF API error: ${response.status}`)
+      throw new Error(`HF API error: ${response.status} - ${errorData}`)
     }
 
     const data = await response.json()
+    console.log('HF API response:', data)
+
     let generatedText = data[0]?.generated_text || ''
 
     // Clean up the response
     generatedText = generatedText
-      .replace(prompt, '') // Remove prompt from response
-      .replace(/Noor:\s*/g, '') // Remove duplicate "Noor:" prefix
+      .replace(prompt, '')
+      .replace(/Noor:\s*/g, '')
+      .split('User:')[0] // Stop at next user message
       .trim()
 
-    // Limit to max 2-3 sentences if too long
-    const sentences = generatedText.split(/[.!?]+/)
+    if (!generatedText || generatedText.length < 5) {
+      generatedText = "I'm thinking... 🤔 Could you say more about what you need?"
+    }
+
+    // Limit to max 2-3 sentences
+    const sentences = generatedText.split(/[.!?]+/).filter((s: string) => s.trim())
     if (sentences.length > 3) {
       generatedText = sentences.slice(0, 3).join('. ') + '.'
     }
 
+    console.log('Final response:', generatedText)
+
     return NextResponse.json({
-      response: generatedText || "I'm thinking... 🤔 Could you rephrase that?",
+      response: generatedText,
       success: true,
     })
   } catch (error) {
