@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sparkles, X, Send, ExternalLink } from 'lucide-react'
 import { useCartStore } from '@/store/cartStore'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 interface Product {
@@ -46,66 +45,8 @@ export default function IntelligentChat() {
   const [allProducts, setAllProducts] = useState<Product[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const router = useRouter()
   const cartStore = useCartStore()
   const conversationRef = useRef<ChatMessage[]>([])
-
-  // ========== SKINCARE KNOWLEDGE BASE ==========
-  const skincareAdvice: Record<string, string> = {
-    acne: `Fighting Acne & Pimples 💪✨
-- Don't over-wash (causes more oil production)
-- Use gentle, non-comedogenic products  
-- Our Night Cream is non-comedogenic & moisturizing
-- Never squeeze or pick at pimples
-- Stay hydrated & reduce stress
-- For severe acne, consult a dermatologist
-
-Consistency is key to clear skin!`,
-    oils: `About Oils for Skincare 🌿💧
-- Natural oils can be great (jojoba, rose, argan)
-- Each oil has different benefits
-- Test patch first to avoid irritation
-- Layer with moisturizer for better absorption
-- Our Night Cream has peptides & hyaluronic acid
-
-The key is finding what works for YOUR skin!`,
-    morning: `Morning Glow Routine ⛅✨
-1. Cleanse with water or mild cleanser
-2. Apply Rose Quartz Gua Sha for circulation
-3. Moisturize with Night Cream (works anytime!)
-4. Don't forget SPF if going out
-
-Our products help you glow naturally!`,
-    night: `Nighttime Recovery Routine 🌙✨
-1. Remove makeup gently
-2. Cleanse face thoroughly
-3. Apply Night Cream - our hero product!
-4. Use Gua Sha for lymphatic drainage
-5. Sleep your way to glowing skin`,
-    hydration: `Hydration is Key! 💧✨
-- Drink 8 glasses of water daily
-- Use hydrating moisturizers
-- Apply serums to damp skin for better absorption
-- Use Gua Sha to boost circulation
-
-Our Night Cream has hyaluronic acid for deep hydration!`,
-    glow: `Glow-Getting Tips ✨🌟
-1. Consistent skincare routine
-2. Use Rose Quartz Gua Sha daily for lymphatic drainage
-3. Stay hydrated
-4. Get enough sleep
-5. Moisturize every night with Night Cream
-
-Result: Plump, glowing, healthy skin!`,
-    mens: `Men's Skincare Tips 💪✨
-Men's skin needs care too!
-- Men have thicker skin but more oil production
-- Daily cleansing prevents breakouts
-- Moisturizing keeps skin healthy
-- Nuura Night Cream works for all genders!
-
-Try our Night Cream - PKR 2,200. Restores, nourishes, rejuvenates.`,
-  }
 
   // ========== PRODUCT DATA LOADING ==========
   useEffect(() => {
@@ -205,9 +146,17 @@ What would you like help with?`,
         results = allProducts.filter((p) => p.isFeatured || p.isNewDrop)
       }
       if (
+        lower.trim() === 'products' ||
+        lower.trim() === 'product' ||
+        lower.trim() === 'all products' ||
+        lower.trim() === 'all product' ||
         lower.includes('all product') ||
         lower.includes('everything') ||
-        lower === 'show me products'
+        lower === 'show me products' ||
+        lower === 'show products' ||
+        lower === 'show all products' ||
+        lower === 'catalog' ||
+        lower === 'catalogue'
       ) {
         results = allProducts
       }
@@ -216,6 +165,41 @@ What would you like help with?`,
     },
     [allProducts]
   )
+
+  const hasProductIntent = useCallback((text: string) => {
+    const lower = text.toLowerCase().trim()
+    if (!lower) return false
+
+    return (
+      lower === 'products' ||
+      lower === 'product' ||
+      lower.includes('show') ||
+      lower.includes('find') ||
+      lower.includes('search') ||
+      lower.includes('recommend') ||
+      lower.includes('suggest') ||
+      lower.includes('best seller') ||
+      lower.includes('popular') ||
+      lower.includes('trending') ||
+      lower.includes('new') ||
+      lower.includes('latest') ||
+      lower.includes('under') ||
+      lower.includes('over') ||
+      lower.includes('between') ||
+      lower.includes('pkr') ||
+      lower.includes('price') ||
+      lower.includes('category') ||
+      lower.includes('skincare') ||
+      lower.includes('self-care') ||
+      lower.includes('accessories') ||
+      allProducts.some(
+        (p) =>
+          lower.includes(p.slug) ||
+          lower.includes(p.name.toLowerCase()) ||
+          p.tags.some((t) => lower.includes(t))
+      )
+    )
+  }, [allProducts])
 
   // ========== PRODUCT RECOMMENDATION ==========
   const getRelatedProducts = useCallback(
@@ -242,234 +226,37 @@ What would you like help with?`,
     async (userMessage: string): Promise<ChatMessage> => {
       const lower = userMessage.toLowerCase()
 
-      // ===== PRODUCT SEARCH =====
-      if (
-        lower.includes('show') ||
-        lower.includes('find') ||
-        lower.includes('search') ||
-        lower.includes('product') ||
-        lower.includes('under') ||
-        lower.includes('over') ||
-        lower.includes('category') ||
-        lower.includes('price')
-      ) {
+      // Attach product cards whenever we can detect product intent.
+      // The textual reply should come from the AI, not hardcoded templates.
+      let attachedProducts: Product[] | undefined
+      if (hasProductIntent(userMessage)) {
         const results = searchProducts(userMessage)
         if (results.products.length > 0) {
-          const productList = results.products
-            .map((p) => `• **${p.name}** - PKR ${p.price} ${p.comparePrice ? `(was ${p.comparePrice})` : ''}\n  ${p.tagline}\n  [View →](/product/${p.slug})`)
-            .join('\n\n')
-
-          return {
-            id: Date.now().toString(),
-            role: 'ai',
-            content: `Found ${results.products.length} product${results.products.length > 1 ? 's' : ''} matching your search:\n\n${productList}\n\n💬 Click any link to view details or ask me for recommendations!`,
-            products: results.products,
-          }
-        }
-        return {
-          id: Date.now().toString(),
-          role: 'ai',
-          content: `Sorry, no products match that search. Try:\n• "Show self-care under 3000"\n• "Skincare products"\n• "All products"\n• "Best sellers"`,
+          attachedProducts = results.products
+        } else if (allProducts.length > 0 && (lower.trim() === 'products' || lower.trim() === 'product')) {
+          attachedProducts = allProducts.slice(0, 10)
         }
       }
 
-      // ===== PRODUCT INQUIRY =====
       const mentioned = allProducts.find(
-        (p) => lower.includes(p.slug) || lower.includes(p.name.toLowerCase()) || p.tags.some((t) => lower.includes(t))
+        (p) =>
+          lower.includes(p.slug) ||
+          lower.includes(p.name.toLowerCase()) ||
+          p.tags.some((t) => lower.includes(t))
       )
       if (mentioned) {
         const related = getRelatedProducts(mentioned.slug)
-        const discount = mentioned.comparePrice
-          ? Math.round(((mentioned.comparePrice - mentioned.price) / mentioned.comparePrice) * 100)
-          : 0
-
-        let response = `**${mentioned.name}** ✨\n\n${mentioned.tagline}\n\n**Price:** PKR ${mentioned.price}`
-        if (mentioned.comparePrice) response += ` (was PKR ${mentioned.comparePrice}) - Save ${discount}%`
-        response += `\n\n**Description:** ${mentioned.description}\n\n**Status:** ${mentioned.inStock ? '✅ In Stock' : '❌ Out of Stock'} (${mentioned.stockCount} available)`
-
-        if (!lower.includes('related') && !lower.includes('similar')) {
-          response += `\n\n[→ View Full Product Details](/product/${mentioned.slug})`
-        }
-
-        if (related.length > 0) {
-          response += `\n\n**Customers also liked:**\n${related.map((p) => `• ${p.name}`).join('\n')}`
-        }
-
-        return {
-          id: Date.now().toString(),
-          role: 'ai',
-          content: response,
-          products: [mentioned, ...related],
-        }
+        attachedProducts = [mentioned, ...related]
       }
 
-      // ===== ORDER TRACKING =====
-      if (lower.includes('track') || lower.includes('order') || lower.includes('where')) {
-        return {
-          id: Date.now().toString(),
-          role: 'ai',
-          content: `To track your order, please provide your **Order Number** (e.g., NR-260101-1234). You can find it in your confirmation email or WhatsApp message from Nuura. 📦\n\nNeed help with anything else?`,
-        }
-      }
-
-      // ===== CART MANAGEMENT =====
-      if (lower.includes('add') || lower.includes('cart')) {
-        const product = allProducts.find(
-          (p) => lower.includes(p.slug) || lower.includes(p.name.toLowerCase()) || p.tags.some((t) => lower.includes(t))
+      const productsContext = (attachedProducts ?? [])
+        .slice(0, 10)
+        .map(
+          (p) =>
+            `- ${p.name} (slug: ${p.slug}, PKR ${p.price}, ${p.inStock ? `in stock: ${p.stockCount}` : 'out of stock'})`
         )
-        if (product) {
-          return {
-            id: Date.now().toString(),
-            role: 'ai',
-            content: `I found **${product.name}** (PKR ${product.price}).\n\n👉 [Add to Cart →](/product/${product.slug})\n\nWould you like to proceed to checkout?`,
-            products: [product],
-          }
-        }
-        return {
-          id: Date.now().toString(),
-          role: 'ai',
-          content: `Which product would you like to add? Try saying:\n• "Add night cream"\n• "Add gua sha to cart"\n• "Show me products under 2000"`,
-        }
-      }
+        .join('\n')
 
-      // ===== FAQ RESPONSES =====
-      if (lower.includes('shipping') || lower.includes('delivery') || lower.includes('how long')) {
-        return {
-          id: Date.now().toString(),
-          role: 'ai',
-          content: `📦 **Shipping Info:**\n• **Lahore/Karachi/Islamabad:** 2-3 days\n• **Other cities:** 3-5 days\n• **Free shipping** on orders over PKR 5,000\n• **Standard cost:** PKR 150-300\n\nWe use TCS & Leopard Couriers. Track your order once it ships! 🚚`,
-        }
-      }
-
-      if (lower.includes('return') || lower.includes('refund') || lower.includes('exchange')) {
-        return {
-          id: Date.now().toString(),
-          role: 'ai',
-          content: `↩️ **Return Policy:**\n• **7-day hassle-free returns** on unused items\n• Must be in original packaging\n• **Damaged items?** WhatsApp us photos within 24 hours\n• We'll replace for free or refund in 3-5 business days\n\nWe prioritize customer satisfaction! 💚`,
-        }
-      }
-
-      if (lower.includes('payment') || lower.includes('pay') || lower.includes('cod')) {
-        return {
-          id: Date.now().toString(),
-          role: 'ai',
-          content: `💳 **Payment Methods:**\n• **Cash on Delivery (COD)** - Most popular!\n• **JazzCash** - Transfer amount, WhatsApp screenshot\n• **EasyPaisa** - Same process\n• **NayaPay** - Digital payment option\n\nOrders confirmed within 1-2 hours of payment verification. Need help? WhatsApp @nuura.pk`,
-        }
-      }
-
-      if (lower.includes('coupon') || lower.includes('discount') || lower.includes('promo')) {
-        return {
-          id: Date.now().toString(),
-          role: 'ai',
-          content: `🎁 **Active Discount Codes:**\n• **NUURA10** - 10% off first order\n• **GLOW5** - PKR 500 off orders over PKR 5,000\n• **Free shipping** on orders over PKR 5,000\n\nApply codes at checkout! ✨`,
-        }
-      }
-
-      // ===== SKINCARE ADVICE =====
-      if (lower.includes('morning') && lower.includes('routine')) {
-        return {
-          id: Date.now().toString(),
-          role: 'ai',
-          content: skincareAdvice.morning,
-        }
-      }
-      if (lower.includes('night') && lower.includes('routine')) {
-        return {
-          id: Date.now().toString(),
-          role: 'ai',
-          content: skincareAdvice.night,
-          products: allProducts.filter(p => p.slug === 'night-cream'),
-        }
-      }
-      if (lower.includes('hydrat')) {
-        return {
-          id: Date.now().toString(),
-          role: 'ai',
-          content: skincareAdvice.hydration,
-        }
-      }
-      if ((lower.includes('glow') || lower.includes('glowing')) && lower.includes('skin')) {
-        return {
-          id: Date.now().toString(),
-          role: 'ai',
-          content: skincareAdvice.glow,
-          products: allProducts.filter(p => ['rose-quartz-gua-sha', 'night-cream'].includes(p.slug)),
-        }
-      }
-      if ((lower.includes('men') || lower.includes('male')) && lower.includes('skin')) {
-        return {
-          id: Date.now().toString(),
-          role: 'ai',
-          content: skincareAdvice.mens,
-          products: allProducts.filter(p => p.slug === 'night-cream'),
-        }
-      }
-
-      // ===== COMMON SKIN ISSUES =====
-      if (lower.includes('acne') || lower.includes('pimple') || lower.includes('breakout') || lower.includes('spot') || (lower.includes('cure') && lower.includes('pimple'))) {
-        return {
-          id: Date.now().toString(),
-          role: 'ai',
-          content: skincareAdvice.acne,
-        }
-      }
-      if (lower.includes('hard skin') || lower.includes('rough skin') || lower.includes('dry skin') || lower.includes('dehydrat')) {
-        return {
-          id: Date.now().toString(),
-          role: 'ai',
-          content: `Treating Dry & Rough Skin 💧✨
-- Exfoliate gently 2x per week to remove dead skin
-- Hydrate with a rich moisturizer like our Night Cream (PKR 2200)
-- Our Night Cream has hyaluronic acid for deep hydration
-- Use a hydrating serum before moisturizer
-- Drink plenty of water (8 glasses daily)
-- Avoid harsh soaps & hot water
-- Consider gua sha massage for better circulation
-
-Consistent moisturizing = soft, glowing skin!`,
-        }
-      }
-      if (lower.includes('oil') || lower.includes('serum')) {
-        return {
-          id: Date.now().toString(),
-          role: 'ai',
-          content: skincareAdvice.oils,
-        }
-      }
-
-      // ===== GENERAL GREETINGS =====
-      if (lower.trim() === 'hello' || lower.trim() === 'hi' || lower.trim() === 'hey' || lower.includes('hello')) {
-        return {
-          id: Date.now().toString(),
-          role: 'ai',
-          content: `Hey there! 👋 Welcome to Nuura!\n\nLooking for something? I can help with:\n• Product search & discovery\n• Skincare routines & advice\n• Order tracking\n• Shipping, returns & payments\n\nWhat interests you?`,
-        }
-      }
-      if (lower.trim() === 'how are you' || lower.includes('how are you')) {
-        return {
-          id: Date.now().toString(),
-          role: 'ai',
-          content: `I'm great, thanks for asking! ✨ Even better now that I can help you find your perfect Nuura product!\n\nWhat brings you here today?`,
-        }
-      }
-      if (lower.trim() === 'help' || lower.includes('help me') || lower.includes('can you help')) {
-        return {
-          id: Date.now().toString(),
-          role: 'ai',
-          content: `I'm here to help! 🌿\n\nI can assist with:\n• Finding products\n• Skincare tips & routines\n• Shipping & delivery questions\n• Payment & coupon info\n• Order tracking\n\nWhat do you need?`,
-        }
-      }
-
-      // ===== FALLBACK RESPONSES FOR COMMON QUESTIONS =====
-      if (lower.includes('thanks') || lower.includes('thank you')) {
-        return {
-          id: Date.now().toString(),
-          role: 'ai',
-          content: `You're welcome! 💚 Enjoy your Nuura products and let your natural glow shine!`,
-        }
-      }
-
-      // ===== USE INTELLIGENT AI FOR UNMATCHED QUERIES =====
       try {
         const aiResponse = await fetch('/api/ai-chat', {
           method: 'POST',
@@ -480,7 +267,13 @@ Consistent moisturizing = soft, glowing skin!`,
                 role: m.role === 'user' ? 'user' : 'assistant',
                 content: m.content.substring(0, 300),
               })),
-              { role: 'user', content: userMessage },
+              {
+                role: 'user',
+                content:
+                  productsContext.length > 0
+                    ? `${userMessage}\n\n(For your reference, here are relevant Nuura products you can recommend with links like /product/[slug]:\n${productsContext})`
+                    : userMessage,
+              },
             ],
             useHuggingFace: true,
           }),
@@ -493,6 +286,7 @@ Consistent moisturizing = soft, glowing skin!`,
               id: Date.now().toString(),
               role: 'ai',
               content: data.response,
+              products: attachedProducts,
             }
           }
         }
@@ -500,14 +294,16 @@ Consistent moisturizing = soft, glowing skin!`,
         console.error('AI Chat error:', error)
       }
 
-      // ===== DEFAULT FALLBACK =====
+      // Minimal fallback if the AI provider is unavailable.
       return {
         id: Date.now().toString(),
         role: 'ai',
-        content: `I'm here to help! Try asking:\n\n🔍 "Show skincare under 3000"\n💎 "Best sellers"\n📦 "Track my order"\n❓ "Shipping info"\n🎁 "Discount codes"\n\nWhat would you like?`,
+        content:
+          "I'm having trouble reaching my AI right now — please try again in a moment. If you tell me your skin type + budget, I can recommend the best Nuura options.",
+        products: attachedProducts,
       }
     },
-    [allProducts, searchProducts, getRelatedProducts]
+    [allProducts, searchProducts, getRelatedProducts, hasProductIntent]
   )
 
   // ========== SEND MESSAGE ==========

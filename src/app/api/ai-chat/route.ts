@@ -67,24 +67,26 @@ export async function POST(request: Request) {
 
     console.log('Calling Hugging Face API...')
 
-    // Try with a different, more stable model
-    const response = await fetch(
-      'https://api-inference.huggingface.co/models/google/flan-t5-large',
-      {
-        headers: {
-          Authorization: `Bearer ${hfToken}`,
-          'Content-Type': 'application/json',
+    // Prefer a smaller model for reliability on the free inference API.
+    const modelUrl = 'https://api-inference.huggingface.co/models/google/flan-t5-base'
+
+    const response = await fetch(modelUrl, {
+      headers: {
+        Authorization: `Bearer ${hfToken}`,
+        'Content-Type': 'application/json',
+      },
+      method: 'POST',
+      body: JSON.stringify({
+        inputs: prompt,
+        parameters: {
+          max_new_tokens: 180,
+          do_sample: false,
         },
-        method: 'POST',
-        body: JSON.stringify({
-          inputs: prompt,
-          parameters: {
-            max_length: 200,
-            do_sample: false,
-          },
-        }),
-      }
-    )
+        options: {
+          wait_for_model: true,
+        },
+      }),
+    })
 
     if (!response.ok) {
       const errorData = await response.text()
@@ -99,13 +101,28 @@ export async function POST(request: Request) {
         })
       }
 
-      throw new Error(`HF API error: ${response.status} - ${errorData}`)
+      // Graceful degradation for rate limits / transient errors.
+      if (response.status === 429 || response.status >= 500) {
+        return NextResponse.json({
+          response:
+            "I'm a bit busy right now — can you try again in a moment? If you tell me your skin type + budget, I’ll recommend the best Nuura options.",
+          success: false,
+          error: `HF transient error (${response.status})`,
+        })
+      }
+
+      return NextResponse.json({
+        response:
+          "I couldn't generate a response right now. Try rephrasing your question (for example: 'recommend products under 3000 for acne').",
+        success: false,
+        error: `HF error (${response.status})`,
+      })
     }
 
     const data = await response.json()
     console.log('HF API response:', data)
 
-    let generatedText = data[0]?.generated_text || ''
+    let generatedText = data?.[0]?.generated_text || ''
 
     // Clean up the response
     generatedText = generatedText
@@ -134,7 +151,8 @@ export async function POST(request: Request) {
     console.error('AI Chat error:', error)
     return NextResponse.json({
       response:
-        "Oops! I hit a bump. 🌿 Try again or WhatsApp us @nuura.pk for instant help!",
+        "I'm having a technical moment — please try again in a bit. If you tell me what you're shopping for, I can still help narrow down products.",
+      success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
     })
   }
