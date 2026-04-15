@@ -1,7 +1,6 @@
-
 'use client'
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   MessageCircle, X, Send, Sparkles,
@@ -129,26 +128,26 @@ const QUICK_REPLIES = [
 
 export function NuuraChatbot() {
   const [open, setOpen] = useState(false)
+  const [msgs, setMsgs] = useState<Msg[]>([])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [cartBump, setCartBump] = useState(false)
+  const [showReplies, setShowReplies] = useState(true)
+  const [suggestions, setSuggestions] = useState<string[]>(QUICK_REPLIES.map(q => q.msg))
+  const [conversationHistory, setConversationHistory] = useState<
+    Array<{ role: 'user' | 'assistant'; content: string }>
+  >([])
+  const bottomRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const router = useRouter()
 
-  const restored = useMemo(() => {
+  const cartStore = useCartStore()
+
+  // Restore chat history across route changes/reloads.
+  useEffect(() => {
     try {
-      if (typeof window === 'undefined') {
-        return {
-          msgs: [] as Msg[],
-          history: [] as Array<{ role: 'user' | 'assistant'; content: string }>,
-          showReplies: true,
-        }
-      }
-
       const raw = sessionStorage.getItem(CHAT_STORAGE_KEY)
-      if (!raw) {
-        return {
-          msgs: [] as Msg[],
-          history: [] as Array<{ role: 'user' | 'assistant'; content: string }>,
-          showReplies: true,
-        }
-      }
-
+      if (!raw) return
       const parsed = JSON.parse(raw) as {
         msgs?: unknown
         history?: unknown
@@ -170,36 +169,22 @@ export function NuuraChatbot() {
           })
         : []
 
-      const restoredShowReplies = typeof parsed.showReplies === 'boolean' ? parsed.showReplies : true
+      if (restoredMsgs.length > 0) setMsgs(restoredMsgs)
+      if (restoredHistory.length > 0) setConversationHistory(restoredHistory)
+      if (typeof parsed.showReplies === 'boolean') setShowReplies(parsed.showReplies)
 
-      return {
-        msgs: restoredMsgs,
-        history: restoredHistory,
-        showReplies: restoredShowReplies,
+      // If storage payload looks bad (e.g. everything got filtered), reset it.
+      if (Array.isArray(parsed.msgs) && restoredMsgs.length === 0) {
+        sessionStorage.removeItem(CHAT_STORAGE_KEY)
       }
     } catch {
-      return {
-        msgs: [] as Msg[],
-        history: [] as Array<{ role: 'user' | 'assistant'; content: string }>,
-        showReplies: true,
+      try {
+        sessionStorage.removeItem(CHAT_STORAGE_KEY)
+      } catch {
+        // ignore
       }
     }
   }, [])
-
-  const [msgs, setMsgs] = useState<Msg[]>(() => restored.msgs)
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [cartBump, setCartBump] = useState(false)
-  const [showReplies, setShowReplies] = useState(() => restored.showReplies)
-  const [suggestions, setSuggestions] = useState<string[]>(QUICK_REPLIES.map(q => q.msg))
-  const [conversationHistory, setConversationHistory] = useState<
-    Array<{ role: 'user' | 'assistant'; content: string }>
-  >(() => restored.history)
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const router = useRouter()
-
-  const cartStore = useCartStore()
 
   useEffect(() => {
     try {
@@ -217,28 +202,18 @@ export function NuuraChatbot() {
   }, [msgs, conversationHistory, showReplies])
 
   useEffect(() => {
+    if (open && msgs.length === 0) {
+      setMsgs([{
+        id: 'init',
+        role: 'bot',
+        text: "Hi! I'm Noor, your Nuura beauty assistant ✨\n\nI can search products, recommend based on your cart/views, track your order, and help with checkout. What would you like?",
+        type: 'replies',
+        replies: ['Show all products','Show best sellers','Track my order','View cart'],
+        isAI: false,
+      }])
+    }
     if (open) setTimeout(() => inputRef.current?.focus(), 300)
   }, [open])
-
-  const toggleOpen = useCallback(() => {
-    setOpen((v) => {
-      const next = !v
-      if (next) {
-        setMsgs((prev) => {
-          if (prev.length > 0) return prev
-          return [{
-            id: 'init',
-            role: 'bot',
-            text: "Hi! I'm Noor, your Nuura beauty assistant ✨\n\nI can search products, recommend based on your cart/views, track your order, and help with checkout. What would you like?",
-            type: 'replies',
-            replies: ['Show all products','Show best sellers','Track my order','View cart'],
-            isAI: false,
-          }]
-        })
-      }
-      return next
-    })
-  }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior:'smooth' })
@@ -499,9 +474,6 @@ export function NuuraChatbot() {
       <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:'8px', overflow:'hidden', marginBottom:'8px' }}>
         <div style={{ background:p.category==='self-care'?'#F0ECE8':'#ECF0F5', height:'88px', display:'flex', alignItems:'center', justifyContent:'center', position:'relative' }}>
           {p.images?.[0] ? (
-            // Images can come from arbitrary domains (DB / CMS). Using <img>
-            // avoids Next/Image remotePatterns issues inside chat cards.
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={p.images[0]}
               alt={p.name}
@@ -578,13 +550,16 @@ export function NuuraChatbot() {
     <>
       <AnimatePresence>
         {open && (
-          <motion.div
-            initial={{ opacity:0, y:20, scale:0.95 }}
-            animate={{ opacity:1, y:0, scale:1 }}
-            exit={{ opacity:0, y:20, scale:0.95 }}
-            transition={{ duration:0.3, ease:[0.25,0.1,0.25,1] }}
-            style={{ position:'fixed', bottom:'5.5rem', right:'1.5rem', width:'min(400px, calc(100vw - 3rem))', height:'calc(100vh - 8.5rem)', maxHeight:'600px', background:C.white, border:`1px solid ${C.border}`, boxShadow:'0 32px 80px rgba(11,26,15,0.2)', zIndex:89, display:'flex', flexDirection:'column', overflow:'hidden', borderRadius:'12px' }}
+          <div
+            style={{ position:'fixed', bottom:'5.5rem', left:0, right:0, padding:'0 1.5rem', zIndex:89, display:'flex', justifyContent:'flex-end' }}
           >
+            <motion.div
+              initial={{ opacity:0, y:20, scale:0.95 }}
+              animate={{ opacity:1, y:0, scale:1 }}
+              exit={{ opacity:0, y:20, scale:0.95 }}
+              transition={{ duration:0.3, ease:[0.25,0.1,0.25,1] }}
+              style={{ width:'100%', maxWidth:'400px', height:'calc(100vh - 8.5rem)', maxHeight:'600px', background:C.white, border:`1px solid ${C.border}`, boxShadow:'0 32px 80px rgba(11,26,15,0.2)', display:'flex', flexDirection:'column', overflow:'hidden', borderRadius:'12px' }}
+            >
             {/* Header */}
             <div style={{ background:C.forest, padding:'1.25rem 1.5rem', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0 }}>
               <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
@@ -748,12 +723,13 @@ export function NuuraChatbot() {
                 </button>
               </div>
             </div>
-          </motion.div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
       {/* Toggle */}
-      <motion.button onClick={toggleOpen} whileHover={{ scale:1.08 }} whileTap={{ scale:0.95 }} data-cursor="hover"
+      <motion.button onClick={()=>setOpen(v=>!v)} whileHover={{ scale:1.08 }} whileTap={{ scale:0.95 }} data-cursor="hover"
         style={{ position:'fixed', bottom:'1.5rem', right:'1.5rem', width:'58px', height:'58px', borderRadius:'50%', background:C.forest, border:'none', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', zIndex:90, boxShadow:'0 8px 32px rgba(11,26,15,0.3)' }}>
         <AnimatePresence>
           {cartTotal>0 && !open && (

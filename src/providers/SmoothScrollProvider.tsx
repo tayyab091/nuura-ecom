@@ -1,14 +1,17 @@
 'use client'
 
 import { ReactLenis } from 'lenis/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 export default function SmoothScrollProvider({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const [enabled] = useState(() => {
+  // Default to disabled so mobile never "briefly" mounts Lenis on first paint.
+  const [enabled, setEnabled] = useState(false)
+
+  useEffect(() => {
     try {
       const prefersReduced = Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches)
       const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
@@ -16,11 +19,11 @@ export default function SmoothScrollProvider({
       const isSmallScreen = Boolean(window.matchMedia?.('(max-width: 767px)')?.matches)
 
       // Lenis can cause jank/scroll bugs on mobile Safari; keep it desktop-only.
-      return !(prefersReduced || isTouch || isCoarsePointer || isSmallScreen)
+      setEnabled(!(prefersReduced || isTouch || isCoarsePointer || isSmallScreen))
     } catch {
-      return false
+      setEnabled(false)
     }
-  })
+  }, [])
 
   if (!enabled) return <>{children}</>
 
