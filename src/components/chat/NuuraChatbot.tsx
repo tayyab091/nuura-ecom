@@ -550,16 +550,13 @@ export function NuuraChatbot() {
     <>
       <AnimatePresence>
         {open && (
-          <div
-            style={{ position:'fixed', bottom:'5.5rem', left:0, right:0, padding:'0 1.5rem', zIndex:89, display:'flex', justifyContent:'flex-end' }}
+          <motion.div
+            initial={{ opacity:0, y:20, scale:0.95 }}
+            animate={{ opacity:1, y:0, scale:1 }}
+            exit={{ opacity:0, y:20, scale:0.95 }}
+            transition={{ duration:0.3, ease:[0.25,0.1,0.25,1] }}
+            style={{ position:'fixed', bottom:'5.5rem', right:'1.5rem', width:'min(400px, calc(100vw - 3rem))', height:'calc(100vh - 8.5rem)', maxHeight:'600px', background:C.white, border:`1px solid ${C.border}`, boxShadow:'0 32px 80px rgba(11,26,15,0.2)', zIndex:89, display:'flex', flexDirection:'column', overflow:'hidden', borderRadius:'12px' }}
           >
-            <motion.div
-              initial={{ opacity:0, y:20, scale:0.95 }}
-              animate={{ opacity:1, y:0, scale:1 }}
-              exit={{ opacity:0, y:20, scale:0.95 }}
-              transition={{ duration:0.3, ease:[0.25,0.1,0.25,1] }}
-              style={{ width:'100%', maxWidth:'400px', height:'calc(100vh - 8.5rem)', maxHeight:'600px', background:C.white, border:`1px solid ${C.border}`, boxShadow:'0 32px 80px rgba(11,26,15,0.2)', display:'flex', flexDirection:'column', overflow:'hidden', borderRadius:'12px' }}
-            >
             {/* Header */}
             <div style={{ background:C.forest, padding:'1.25rem 1.5rem', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0 }}>
               <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
@@ -596,7 +593,7 @@ export function NuuraChatbot() {
 
             {/* Quick replies bar */}
             {showReplies && msgs.length <= 1 && (
-              <div style={{ padding:'10px 14px', borderBottom:`1px solid ${C.border}`, display:'flex', gap:'6px', overflowX:'auto', flexShrink:0, touchAction:'pan-x' }} className="hide-scrollbar">
+              <div style={{ padding:'10px 14px', borderBottom:`1px solid ${C.border}`, display:'flex', gap:'6px', overflowX:'auto', flexShrink:0 }} className="hide-scrollbar">
                 {QUICK_REPLIES.map((qr,i) => (
                   <button key={i} onClick={()=>send(qr.msg)}
                     style={{ padding:'6px 12px', border:`1px solid ${C.border}`, background:'transparent', fontFamily:'var(--font-sans)', fontSize:'11px', color:C.muted, cursor:'pointer', borderRadius:'20px', transition:'all 200ms', whiteSpace:'nowrap' as const, flexShrink:0 }}
@@ -677,7 +674,7 @@ export function NuuraChatbot() {
             {/* Input */}
             <div style={{ padding:'0.875rem 1.25rem', borderTop:`1px solid ${C.border}`, display:'flex', flexDirection:'column', gap:'10px', flexShrink:0 }}>
               {input.trim().length >= 2 && suggestions.length > 0 && (
-                <div style={{ display:'flex', gap:'6px', overflowX:'auto', touchAction:'pan-x' }} className="hide-scrollbar">
+                <div style={{ display:'flex', gap:'6px', overflowX:'auto' }} className="hide-scrollbar">
                   {suggestions.slice(0, 6).map((s, i) => (
                     <button
                       key={`${s}-${i}`}
@@ -723,8 +720,7 @@ export function NuuraChatbot() {
                 </button>
               </div>
             </div>
-            </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
