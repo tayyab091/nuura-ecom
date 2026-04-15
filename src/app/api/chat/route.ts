@@ -1009,18 +1009,25 @@ export async function POST(request: Request) {
 
       if (!looksInformational && !looksTransactional && keywords.length > 0 && keywords.length <= 6 && lowerMsg.length <= 70) {
         const ok = await tryConnectDB(1200)
-        if (ok) {
-          const products = await dbSearchProducts(lowerMsg)
-          if (products.length > 0) {
-            return NextResponse.json({
-              response: `I found ${products.length} product${products.length === 1 ? '' : 's'} for “${msg.trim()}”.`,
-              products,
-              suggestions: ['Show best sellers', 'Show new arrivals', 'Add to cart'],
-              fallback: false,
-              source: 'db',
-            } satisfies ChatApiPayload)
-          }
+        const products = ok ? await dbSearchProducts(lowerMsg) : fallbackSearchProducts(lowerMsg)
+
+        if (products.length > 0) {
+          return NextResponse.json({
+            response: `I found ${products.length} product${products.length === 1 ? '' : 's'} for “${msg.trim()}”.`,
+            products,
+            suggestions: ['Show best sellers', 'Show new arrivals', 'Add to cart'],
+            fallback: !ok,
+            source: ok ? 'db' : 'fallback',
+          } satisfies ChatApiPayload)
         }
+
+        // Deterministic "not found" response so the AI can't hallucinate inventory.
+        return NextResponse.json({
+          response: `I couldn’t find “${msg.trim()}” in our catalog right now.`,
+          suggestions: ['Show all products', 'Show best sellers', 'Show new arrivals'],
+          fallback: !ok,
+          source: ok ? 'db' : 'fallback',
+        } satisfies ChatApiPayload)
       }
     }
 
