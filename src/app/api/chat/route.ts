@@ -550,6 +550,13 @@ function sanitizeAssistantText(raw: string): string {
   t = t.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
   t = t.replace(/```(?:analysis|reasoning)[\s\S]*?```/gi, '').trim()
 
+  // If the model accidentally outputs HTML/template-like text, strip tags.
+  // (This can happen if an upstream error page leaks into the completion.)
+  if (/<\s*[a-z][^>]*>/i.test(t)) {
+    const stripped = t.replace(/<[^>]+>/g, '').trim()
+    if (stripped) t = stripped
+  }
+
   // Strip meta/reasoning lines (even if preceded by a greeting).
   {
     const lines = t.split('\n')

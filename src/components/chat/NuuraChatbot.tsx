@@ -13,6 +13,46 @@ import Link from 'next/link'
 
 const CHAT_STORAGE_KEY = 'nuura-noor-chat-v1'
 
+function cleanDisplayText(input: unknown): string {
+  const t = String(input ?? '')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .replace(/\r\n/g, '\n')
+    .trim()
+  return t
+}
+
+function looksCorruptedText(t: string): boolean {
+  if (!t) return false
+  if (t.length > 8000) return true
+  if (/[\uFFFD]/.test(t)) return true
+  if (/<\s*\/?\s*(?:html|head|body|template|script|style)\b/i.test(t)) return true
+  if (/(?:\.{3,}|…{6,}|—{6,})/.test(t) && t.length > 400) return true
+  return false
+}
+
+function isValidRole(role: unknown): role is Msg['role'] {
+  return role === 'user' || role === 'bot'
+}
+
+function safeMsgFromStorage(m: unknown): Msg | null {
+  if (!m || typeof m !== 'object') return null
+  const anyM = m as Partial<Msg>
+  if (!isValidRole(anyM.role)) return null
+  const text = cleanDisplayText(anyM.text)
+  if (!text) return null
+  if (looksCorruptedText(text)) return null
+
+  return {
+    id: typeof anyM.id === 'string' ? anyM.id : `${anyM.role}_${Date.now()}`,
+    role: anyM.role,
+    text,
+    type: anyM.type,
+    replies: Array.isArray(anyM.replies) ? anyM.replies.map(String).slice(0, 12) : undefined,
+    isAI: Boolean(anyM.isAI),
+    // Intentionally do not hydrate heavy fields (products/order) from storage.
+  }
+}
+
 const C = {
   forest: '#1B2E1F', cream: '#F5F0E6', gold: '#D4A853',
   goldLight: '#E8C97A', white: '#FAFAF8', offwhite: '#F0EBE3',
@@ -108,12 +148,41 @@ export function NuuraChatbot() {
     try {
       const raw = sessionStorage.getItem(CHAT_STORAGE_KEY)
       if (!raw) return
-      const parsed = JSON.parse(raw) as { msgs?: Msg[]; history?: Array<{ role: 'user' | 'assistant'; content: string }>; showReplies?: boolean }
-      if (Array.isArray(parsed.msgs)) setMsgs(parsed.msgs)
-      if (Array.isArray(parsed.history)) setConversationHistory(parsed.history)
+      const parsed = JSON.parse(raw) as {
+        msgs?: unknown
+        history?: unknown
+        showReplies?: unknown
+      }
+
+      const restoredMsgs: Msg[] = Array.isArray(parsed.msgs)
+        ? (parsed.msgs as unknown[])
+            .map(safeMsgFromStorage)
+            .filter(Boolean) as Msg[]
+        : []
+
+      const restoredHistory: Array<{ role: 'user' | 'assistant'; content: string }> = Array.isArray(parsed.history)
+        ? (parsed.history as Array<{ role?: unknown; content?: unknown }>).flatMap((h) => {
+            const role = h?.role
+            const content = cleanDisplayText(h?.content)
+            if ((role !== 'user' && role !== 'assistant') || !content || looksCorruptedText(content)) return []
+            return [{ role: role as 'user' | 'assistant', content }]
+          })
+        : []
+
+      if (restoredMsgs.length > 0) setMsgs(restoredMsgs)
+      if (restoredHistory.length > 0) setConversationHistory(restoredHistory)
       if (typeof parsed.showReplies === 'boolean') setShowReplies(parsed.showReplies)
+
+      // If storage payload looks bad (e.g. everything got filtered), reset it.
+      if (Array.isArray(parsed.msgs) && restoredMsgs.length === 0) {
+        sessionStorage.removeItem(CHAT_STORAGE_KEY)
+      }
     } catch {
-      // ignore
+      try {
+        sessionStorage.removeItem(CHAT_STORAGE_KEY)
+      } catch {
+        // ignore
+      }
     }
   }, [])
 
@@ -270,12 +339,22 @@ export function NuuraChatbot() {
       const botMsg: Msg = {
         id: `bot_${Date.now()}`,
         role: 'bot',
-        text: data.response,
+        text: cleanDisplayText(data.response),
         type: data.products?.length ? 'products' : data.order ? 'order' : 'text',
         products: data.products,
         order: data.order,
         replies: data.suggestions?.slice(0, 8),
         isAI: data.source === 'openrouter',
+      }
+
+      if (looksCorruptedText(botMsg.text)) {
+        addBotMsg({
+          text: "Sorry — I got a garbled response. Please try again.",
+          type: 'replies',
+          replies: ['Show best sellers', 'Show new arrivals', 'Show all products'],
+        })
+        setLoading(false)
+        return
       }
 
       setMsgs(prev => [...prev, botMsg])
