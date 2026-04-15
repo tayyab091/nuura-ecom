@@ -2,9 +2,11 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MessageCircle, X, Send, Sparkles, ShoppingBag, Package, Search, ChevronRight } from 'lucide-react'
-import { useCartStore } from '@/store/cartStore'
-import { Product } from '@/types'
+import {
+  MessageCircle, X, Send, Sparkles,
+  ShoppingBag, Search, Package, ChevronRight,
+  Star
+} from 'lucide-react'
 
 const C = {
   forest: '#1B2E1F', cream: '#F5F0E6', gold: '#D4A853',
@@ -12,520 +14,263 @@ const C = {
   ink: '#0F1A11', muted: '#6B7B6E', border: '#DDD8CF',
 }
 
-// ── Product catalog ───────────────────────────────────────────────
 const PRODUCTS = [
-  {
-    id: '1', slug: 'rose-quartz-gua-sha', name: 'Rose Quartz Gua Sha',
-    tagline: 'Sculpt. Depuff. Glow.', price: 2800, comparePrice: 3500,
-    category: 'self-care', tags: ['gua sha', 'facial', 'sculpt', 'depuff', 'glow', 'massage', 'stone'],
-    description: 'Authentic rose quartz for facial lifting and lymphatic drainage.',
-    inStock: true, isNew: true, isBestSeller: false,
-  },
-  {
-    id: '2', slug: 'led-glow-mirror', name: 'LED Glow Mirror',
-    tagline: 'Studio lighting, anywhere.', price: 4500, comparePrice: 5500,
-    category: 'self-care', tags: ['mirror', 'led', 'makeup', 'vanity', 'light', 'glow'],
-    description: 'Adjustable brightness, 10x magnification, USB rechargeable.',
-    inStock: true, isNew: false, isBestSeller: true,
-  },
-  {
-    id: '3', slug: 'mini-chain-crossbody', name: 'Mini Chain Crossbody',
-    tagline: 'Small bag. Big statement.', price: 3200, comparePrice: null,
-    category: 'accessories', tags: ['bag', 'crossbody', 'chain', 'purse', 'handbag', 'quilted'],
-    description: 'Quilted mini crossbody with gold chain strap.',
-    inStock: true, isNew: true, isBestSeller: false,
-  },
-  {
-    id: '4', slug: 'jade-face-roller', name: 'Jade Face Roller',
-    tagline: 'Roll away the stress.', price: 1800, comparePrice: 2200,
-    category: 'self-care', tags: ['jade', 'roller', 'facial', 'massage', 'puffiness', 'eye'],
-    description: 'Dual-ended jade roller for massage and serum absorption.',
-    inStock: true, isNew: false, isBestSeller: true,
-  },
-  {
-    id: '5', slug: 'acrylic-clutch', name: 'Acrylic Box Clutch',
-    tagline: 'Art you carry.', price: 2500, comparePrice: null,
-    category: 'accessories', tags: ['clutch', 'acrylic', 'transparent', 'evening', 'bag', 'clear'],
-    description: 'Clear acrylic with gold hardware. Statement piece.',
-    inStock: true, isNew: true, isBestSeller: false,
-  },
-  {
-    id: '6', slug: 'facial-steamer', name: 'USB Facial Steamer',
-    tagline: 'Open up. Breathe in. Glow.', price: 3800, comparePrice: 4500,
-    category: 'self-care', tags: ['steamer', 'facial', 'pores', 'steam', 'cleanse', 'hydration'],
-    description: 'Nano ionic steamer for deep pore cleansing.',
-    inStock: true, isNew: false, isBestSeller: false,
-  },
-  {
-    id: '7', slug: 'night-cream', name: 'Night Cream',
-    tagline: 'Restore. Nourish. Rejuvenate.', price: 2200, comparePrice: 3000,
-    category: 'self-care', tags: ['cream', 'night', 'moisturizer', 'skincare', 'hydration', 'sleep'],
-    description: 'Rich night cream with hyaluronic acid and peptides for deep hydration.',
-    inStock: true, isNew: true, isBestSeller: false,
-  },
+  { id:'1', slug:'rose-quartz-gua-sha', name:'Rose Quartz Gua Sha', tagline:'Sculpt. Depuff. Glow.', price:2800, comparePrice:3500, category:'self-care', tags:['gua sha','facial','sculpt','depuff','massage'], isNew:true, isBest:false },
+  { id:'2', slug:'led-glow-mirror', name:'LED Glow Mirror', tagline:'Studio lighting, anywhere.', price:4500, comparePrice:5500, category:'self-care', tags:['mirror','led','makeup','vanity','light'], isNew:false, isBest:true },
+  { id:'3', slug:'mini-chain-crossbody', name:'Mini Chain Crossbody', tagline:'Small bag. Big statement.', price:3200, comparePrice:null, category:'accessories', tags:['bag','crossbody','chain','purse','handbag'], isNew:true, isBest:false },
+  { id:'4', slug:'jade-face-roller', name:'Jade Face Roller', tagline:'Roll away the stress.', price:1800, comparePrice:2200, category:'self-care', tags:['jade','roller','facial','massage','puffiness','eye'], isNew:false, isBest:true },
+  { id:'5', slug:'acrylic-clutch', name:'Acrylic Box Clutch', tagline:'Art you carry.', price:2500, comparePrice:null, category:'accessories', tags:['clutch','acrylic','bag','evening','clear'], isNew:true, isBest:false },
+  { id:'6', slug:'facial-steamer', name:'USB Facial Steamer', tagline:'Open up. Breathe in. Glow.', price:3800, comparePrice:4500, category:'self-care', tags:['steamer','facial','pores','steam','cleanse'], isNew:false, isBest:false },
 ]
 
-// ── Mock orders ───────────────────────────────────────────────────
-const MOCK_ORDERS: Record<string, { status: string; items: string[]; date: string; eta: string }> = {
-  'NR-260101-1234': { status: 'shipped', items: ['Rose Quartz Gua Sha'], date: '2025-01-20', eta: 'Tomorrow by 8pm' },
-  'NR-260102-5678': { status: 'confirmed', items: ['LED Glow Mirror', 'Jade Face Roller'], date: '2025-01-21', eta: '2-3 business days' },
-  'NR-260103-9012': { status: 'delivered', items: ['Mini Chain Crossbody'], date: '2025-01-18', eta: 'Delivered' },
-  'NR-260104-3456': { status: 'pending_verification', items: ['USB Facial Steamer'], date: '2025-01-22', eta: 'Awaiting payment confirmation' },
+const MOCK_ORDERS: Record<string, { status:string; items:string[]; eta:string }> = {
+  'NR-260101-1234': { status:'shipped', items:['Rose Quartz Gua Sha'], eta:'Tomorrow by 8pm' },
+  'NR-260102-5678': { status:'confirmed', items:['LED Glow Mirror'], eta:'2-3 business days' },
+  'NR-260103-9012': { status:'delivered', items:['Mini Chain Crossbody'], eta:'Delivered' },
 }
 
-const STATUS_LABELS: Record<string, { label: string; color: string; icon: string }> = {
-  pending_verification: { label: 'Awaiting Payment Confirmation', color: '#B8860B', icon: '⏳' },
-  confirmed: { label: 'Order Confirmed', color: '#166534', icon: '✅' },
-  processing: { label: 'Being Prepared', color: '#1d4ed8', icon: '📦' },
-  shipped: { label: 'Out for Delivery', color: '#6d28d9', icon: '🚚' },
-  delivered: { label: 'Delivered', color: '#065f46', icon: '🎉' },
-  cancelled: { label: 'Cancelled', color: '#991b1b', icon: '❌' },
+const STATUS_MAP: Record<string,{label:string;icon:string;color:string}> = {
+  pending_verification: { label:'Awaiting Payment', icon:'⏳', color:'#B8860B' },
+  confirmed: { label:'Order Confirmed', icon:'✅', color:'#166534' },
+  processing: { label:'Being Prepared', icon:'🔄', color:'#1d4ed8' },
+  shipped: { label:'Out for Delivery', icon:'🚚', color:'#7c3aed' },
+  delivered: { label:'Delivered', icon:'🎉', color:'#065f46' },
+  cancelled: { label:'Cancelled', icon:'❌', color:'#991b1b' },
 }
 
-// ── Message types ─────────────────────────────────────────────────
-type MsgType = 'text' | 'products' | 'order' | 'cart' | 'quick_replies'
-
+interface CartItem { product: typeof PRODUCTS[0]; qty: number }
 interface Msg {
+  id: string
   role: 'user' | 'bot'
   text: string
-  type?: MsgType
+  type?: 'text' | 'products' | 'order' | 'replies'
   products?: typeof PRODUCTS
-  order?: typeof MOCK_ORDERS[string] & { number: string }
-  quickReplies?: string[]
-  cartAction?: { action: 'added' | 'removed' | 'show'; item?: string; total?: number }
+  order?: { number:string; status:string; items:string[]; eta:string }
+  replies?: string[]
+  isAI?: boolean
 }
 
-// ── NLP helpers ───────────────────────────────────────────────────
-function extractPrice(text: string): { min: number; max: number } | null {
-  const under = text.match(/under\s+(?:pkr\s*)?(\d+)/i)
-  const above = text.match(/(?:above|over|more than)\s+(?:pkr\s*)?(\d+)/i)
-  const between = text.match(/between\s+(?:pkr\s*)?(\d+)\s+and\s+(?:pkr\s*)?(\d+)/i)
-  if (between) return { min: parseInt(between[1]), max: parseInt(between[2]) }
-  if (under) return { min: 0, max: parseInt(under[1]) }
-  if (above) return { min: parseInt(above[1]), max: 99999 }
+function extractPrice(t: string): { min:number; max:number } | null {
+  const u = t.match(/under\s+(?:pkr\s*)?(\d+)/i)
+  const a = t.match(/(?:above|over)\s+(?:pkr\s*)?(\d+)/i)
+  const b = t.match(/between\s+(?:pkr\s*)?(\d+)\s+and\s+(?:pkr\s*)?(\d+)/i)
+  if (b) return { min:parseInt(b[1]), max:parseInt(b[2]) }
+  if (u) return { min:0, max:parseInt(u[1]) }
+  if (a) return { min:parseInt(a[1]), max:99999 }
   return null
 }
 
-function findProducts(query: string): typeof PRODUCTS {
-  const lower = query.toLowerCase()
-  const priceFilter = extractPrice(lower)
+function searchProducts(query: string): typeof PRODUCTS {
+  const q = query.toLowerCase()
+  const price = extractPrice(q)
+  const isSelfCare = /self.care|skincare|skin care|beauty|gua sha|roller|steamer|mirror/.test(q)
+  const isAccessory = /accessor|bag|purse|clutch|handbag/.test(q)
+  const isBest = /best|popular|trending|top/.test(q)
+  const isNew = /new|latest|arrival|just in/.test(q)
+  const isAll = /all|everything|show me|browse/.test(q)
 
   let results = PRODUCTS.filter(p => {
-    const matchesText = (
-      p.name.toLowerCase().includes(lower) ||
-      p.tagline.toLowerCase().includes(lower) ||
-      p.category.toLowerCase().includes(lower) ||
-      p.tags.some(t => lower.includes(t)) ||
-      lower.includes(p.name.toLowerCase().split(' ')[0])
-    )
-    const matchesPrice = !priceFilter || (p.price >= priceFilter.min && p.price <= priceFilter.max)
-    const matchesCategory =
-      (lower.includes('self-care') || lower.includes('skincare') || lower.includes('beauty')) ? p.category === 'self-care' :
-      (lower.includes('accessor') || lower.includes('bag') || lower.includes('clutch') || lower.includes('purse')) ? p.category === 'accessories' :
-      true
-
-    return matchesText && matchesPrice && matchesCategory
+    const textMatch = p.name.toLowerCase().includes(q) ||
+      p.tags.some(t => q.includes(t)) ||
+      q.includes(p.name.toLowerCase().split(' ')[0].toLowerCase())
+    const priceMatch = !price || (p.price >= price.min && p.price <= price.max)
+    const catMatch = isSelfCare ? p.category === 'self-care' :
+      isAccessory ? p.category === 'accessories' : true
+    return (textMatch || isAll) && priceMatch && catMatch
   })
 
-  // Trending / bestseller
-  if (lower.includes('best') || lower.includes('popular') || lower.includes('trending')) {
-    results = PRODUCTS.filter(p => p.isBestSeller)
-    if (!results.length) results = PRODUCTS.slice(0, 3)
-  }
+  if (isBest) results = PRODUCTS.filter(p => p.isBest)
+  if (isNew) results = PRODUCTS.filter(p => p.isNew)
+  if (isAll && !price) results = PRODUCTS
 
-  // New arrivals
-  if (lower.includes('new') || lower.includes('latest') || lower.includes('arrival')) {
-    results = PRODUCTS.filter(p => p.isNew)
-  }
-
-  // All products
-  if (lower.includes('all') || lower.includes('everything') || lower.includes('show me') || lower === 'products') {
-    results = PRODUCTS
-  }
-
-  return results
+  return results.length ? results :
+    PRODUCTS.filter(p =>
+      p.tags.some(t => q.includes(t.split(' ')[0]))
+    )
 }
 
-function getOrderStatus(query: string): typeof MOCK_ORDERS[string] & { number: string } | null {
-  const match = query.match(/NR-\d{6}-\d{4}/i)
-  if (match) {
-    const num = match[0].toUpperCase()
-    const order = MOCK_ORDERS[num]
-    if (order) return { ...order, number: num }
+function getHardcodedResponse(input: string, cart: CartItem[]): Msg | null {
+  const q = input.toLowerCase().trim()
+  const id = `bot_${Date.now()}`
+
+  // Greetings
+  if (/^(hi|hello|hey|salam|assalam|yo)/.test(q)) {
+    return { id, role:'bot', text:"Hi! I'm Noor, your Nuura beauty assistant ✨\n\nI can search products, track orders, manage your cart, and answer anything beauty-related.", type:'replies', replies:['Show all products','Best sellers','Track my order','Skincare advice'] }
   }
+
+  // Order tracking
+  const orderMatch = input.match(/NR-\d{6}-\d{4}/i)
+  if (orderMatch) {
+    const num = orderMatch[0].toUpperCase()
+    const order = MOCK_ORDERS[num]
+    if (order) {
+      const s = STATUS_MAP[order.status] || { label:order.status, icon:'📦', color:C.muted }
+      return { id, role:'bot', text:`Found your order! ${s.icon}`, type:'order', order:{ number:num, ...order } }
+    }
+    return { id, role:'bot', text:"I couldn't find that order number. Please check the format: NR-XXXXXX-XXXX\n\nTry a demo: NR-260101-1234", type:'replies', replies:['NR-260101-1234','NR-260102-5678','Contact support'] }
+  }
+
+  if (/track|where is|my order|order status/.test(q)) {
+    return { id, role:'bot', text:"Please share your order number to track it! 📦\n\nFormat: NR-XXXXXX-XXXX\nFind it in your confirmation WhatsApp or email.", type:'replies', replies:['NR-260101-1234 (demo)','NR-260102-5678 (demo)'] }
+  }
+
+  // Cart operations
+  if (/view cart|my cart|what.s in cart|show cart/.test(q)) {
+    if (!cart.length) return { id, role:'bot', text:"Your cart is empty! Let me help you find something beautiful 🌿", type:'replies', replies:['Show all products','Best sellers','Under PKR 2,000'] }
+    const total = cart.reduce((s,i) => s + i.product.price*i.qty, 0)
+    const list = cart.map(i => `• ${i.product.name} ×${i.qty} — PKR ${(i.product.price*i.qty).toLocaleString()}`).join('\n')
+    return { id, role:'bot', text:`Your cart (${cart.length} item${cart.length>1?'s':''}):\n\n${list}\n\nTotal: PKR ${total.toLocaleString()}\n${total>=5000?'✅ Free shipping!':'PKR '+(5000-total).toLocaleString()+' more for free shipping'}`, type:'replies', replies:['Proceed to checkout','Clear cart','Continue shopping'] }
+  }
+
+  if (/clear cart|empty cart|remove all/.test(q)) {
+    return { id, role:'bot', text:"__CLEAR_CART__", type:'text' }
+  }
+
+  if (/checkout|proceed/.test(q)) {
+    if (!cart.length) return { id, role:'bot', text:"Cart is empty! Add products first 🛍️", type:'replies', replies:['Show all products'] }
+    return { id, role:'bot', text:`Ready! ${cart.length} item(s) totaling PKR ${cart.reduce((s,i)=>s+i.product.price*i.qty,0).toLocaleString()}\n\nClick below to complete your order with COD, JazzCash, or EasyPaisa.`, type:'replies', replies:['Go to checkout →'] }
+  }
+
+  // Coupon
+  if (/coupon|discount|promo|code/.test(q)) {
+    return { id, role:'bot', text:"🎁 Active discount codes:\n\n• **NUURA10** — 10% off your first order\n• **GLOW5** — PKR 500 off orders over PKR 5,000\n\nApply at checkout!", type:'replies', replies:['Show products','Go to checkout'] }
+  }
+
+  // FAQ
+  if (/ship|deliver|how long|when will/.test(q)) {
+    return { id, role:'bot', text:"📦 Delivery:\n\n• Lahore/Karachi/Islamabad: 2-3 days\n• Other cities: 3-5 days\n• Free shipping over PKR 5,000\n• PKR 150-300 standard\n• TCS & Leopard Couriers", type:'replies', replies:['Track order','Payment methods','Return policy'] }
+  }
+
+  if (/payment|pay|cod|jazzcash|easypaisa/.test(q)) {
+    return { id, role:'bot', text:"💳 Payment Options:\n\n• 💵 Cash on Delivery (nationwide)\n• 📱 JazzCash\n• 📱 EasyPaisa\n• 📱 NayaPay\n\nFor digital payments: transfer and WhatsApp screenshot.", type:'replies', replies:['Place order','Shipping info'] }
+  }
+
+  if (/return|refund|exchange/.test(q)) {
+    return { id, role:'bot', text:"↩️ Returns:\n\n• 7-day hassle-free returns\n• Unused items in original packaging\n• Damaged? WhatsApp photo within 24h\n• Full refund or replacement", type:'replies', replies:['Contact support'] }
+  }
+
+  // Skincare advice
+  if (/routine|skincare|skin care|advice|how to/.test(q)) {
+    return { id, role:'bot', text:"🌿 Morning Ritual:\n\n1. Cleanser\n2. Toner\n3. Serum\n4. Facial Oil + Gua Sha 🔑\n5. Moisturizer\n6. SPF ☀️\n\nSteamer 2-3x/week before serums doubles absorption!", type:'replies', replies:['Show self-care products','Gua sha tips','For puffiness'] }
+  }
+
+  if (/puffy|puffiness|swollen/.test(q)) {
+    const products = PRODUCTS.filter(p => p.slug === 'jade-face-roller')
+    return { id, role:'bot', text:"For puffiness: Cold jade roller first thing in the morning! Sweep outward toward ears. 10 minutes = visible difference 🌿", type:'products', products }
+  }
+
+  if (/dark circle|under eye/.test(q)) {
+    const products = PRODUCTS.filter(p => p.slug === 'jade-face-roller')
+    return { id, role:'bot', text:"For dark circles: small end of jade roller under eyes with gentle upward strokes. Keep it cold. 2-3 weeks of consistent use makes a real difference!", type:'products', products }
+  }
+
+  if (/acne|pimple|breakout/.test(q)) {
+    const products = PRODUCTS.filter(p => p.slug === 'facial-steamer')
+    return { id, role:'bot', text:"For acne: facial steamer deep cleanses pores. Skip gua sha on active breakouts — wait for skin to calm first.", type:'products', products }
+  }
+
+  // Product search
+  const searchTriggers = /show|find|search|looking for|need|want|recommend|suggest|what do you have|products|self-care|accessor|bag|skincare|gua sha|jade|mirror|steamer|roller|clutch|under|best|new|all/
+  if (searchTriggers.test(q) || extractPrice(q)) {
+    const results = searchProducts(q)
+    if (results.length) {
+      const price = extractPrice(q)
+      const intro = price
+        ? `Found ${results.length} product${results.length>1?'s':''} ${price.max<99999?'under PKR '+price.max.toLocaleString():'over PKR '+price.min.toLocaleString()}:`
+        : `Found ${results.length} product${results.length>1?'s':''} for you ✨`
+      return { id, role:'bot', text:intro, type:'products', products:results }
+    }
+  }
+
+  // Thanks/bye
+  if (/thanks|thank you|shukriya|bye|goodbye/.test(q)) {
+    return { id, role:'bot', text:"You're welcome! Glow on ✨\n\nFollow @nuura.pk for new drops!", type:'replies', replies:['Browse products','Track order'] }
+  }
+
   return null
 }
 
-// ── Main bot logic ────────────────────────────────────────────────
-function processMessage(
-  input: string,
-  cart: { items: { product: any; quantity: number }[] },
-  addItem: (product: any) => void,
-  removeItem: (id: string) => void,
-  clearCart: () => void
-): Msg {
-  const lower = input.toLowerCase().trim()
+const QUICK_REPLIES = [
+  { label:'🌿 All Products', msg:'show all products' },
+  { label:'⭐ Best Sellers', msg:'show best sellers' },
+  { label:'✨ New Arrivals', msg:'show new arrivals' },
+  { label:'💅 Self-Care', msg:'show self-care products' },
+  { label:'👜 Accessories', msg:'show accessories' },
+  { label:'📦 Track Order', msg:'track my order' },
+  { label:'🚚 Shipping Info', msg:'shipping info' },
+  { label:'↩️ Returns', msg:'return policy' },
+  { label:'💳 Payment', msg:'payment methods' },
+  { label:'🛒 My Cart', msg:'view my cart' },
+  { label:'🎁 Coupons', msg:'discount codes' },
+  { label:'✨ Skincare Tips', msg:'morning skincare routine' },
+]
 
-  // ── Greetings ──────────────────────────────────────────────────
-  if (/^(hi|hello|hey|salam|assalam|yo|sup)/.test(lower)) {
-    return {
-      role: 'bot', text: "Hi! I'm Noor, your Nuura beauty assistant ✨\n\nI can help you find products, track your order, manage your cart, and answer any questions. What would you like to do?",
-      type: 'quick_replies',
-      quickReplies: ['Show all products', 'Best sellers', 'Track my order', 'What\'s new?'],
-    }
-  }
-
-  // ── Order tracking ─────────────────────────────────────────────
-  if (lower.includes('track') || lower.includes('order') || lower.includes('where is') || lower.includes('my order') || lower.includes('status')) {
-    const orderData = getOrderStatus(input)
-    if (orderData) {
-      const statusInfo = STATUS_LABELS[orderData.status] || { label: orderData.status, color: C.muted, icon: '📦' }
-      return {
-        role: 'bot',
-        text: `Found your order! ${statusInfo.icon}\n\nOrder #${orderData.number}\nStatus: ${statusInfo.label}\nItems: ${orderData.items.join(', ')}\nETA: ${orderData.eta}`,
-        type: 'order',
-        order: orderData,
-      }
-    }
-    return {
-      role: 'bot',
-      text: "Please share your order number and I'll track it for you! 📦\n\nYour order number looks like: NR-XXXXXX-XXXX\n\nYou can find it in your confirmation WhatsApp message or email.",
-      type: 'quick_replies',
-      quickReplies: ['NR-260101-1234 (demo)', 'NR-260102-5678 (demo)', 'Contact support'],
-    }
-  }
-
-  // ── Cart: view ─────────────────────────────────────────────────
-  if (lower.includes('cart') || lower.includes('basket') || lower.includes('what did i add')) {
-    if (cart.items.length === 0) {
-      return {
-        role: 'bot', text: "Your cart is empty! Let me help you find something beautiful 🌿",
-        type: 'quick_replies',
-        quickReplies: ['Show all products', 'Best sellers', 'Under PKR 2,000'],
-      }
-    }
-    const total = cart.items.reduce((s, i) => s + i.product.price * i.quantity, 0)
-    const itemsList = cart.items.map(i => `• ${i.product.name} ×${i.quantity} — PKR ${(i.product.price * i.quantity).toLocaleString()}`).join('\n')
-    return {
-      role: 'bot',
-      text: `Your cart (${cart.items.length} item${cart.items.length > 1 ? 's' : ''}):\n\n${itemsList}\n\nTotal: PKR ${total.toLocaleString()}\n${total >= 5000 ? '✅ Free shipping!' : `PKR ${(5000 - total).toLocaleString()} more for free shipping`}`,
-      type: 'quick_replies',
-      quickReplies: ['Proceed to checkout', 'Clear cart', 'Continue shopping'],
-    }
-  }
-
-  // ── Cart: remove ───────────────────────────────────────────────
-  if (lower.includes('remove') || lower.includes('delete from cart') || lower.includes('take out')) {
-    const product = PRODUCTS.find(p => lower.includes(p.name.toLowerCase()) || p.tags.some(t => lower.includes(t)))
-    if (product) {
-      // NOTE: use cart store _id
-      const cartItem = cart.items.find((item) => item.product.slug === product.slug)
-      if (cartItem) removeItem(cartItem.product._id)
-      return { role: 'bot', text: `Removed ${product.name} from your cart. 🗑️\n\nAnything else I can help with?`, type: 'quick_replies', quickReplies: ['View cart', 'Continue shopping', 'Checkout'] }
-    }
-    return { role: 'bot', text: "Which item would you like to remove? Share the product name and I'll take care of it!", type: 'quick_replies', quickReplies: ['View cart'] }
-  }
-
-  // ── Cart: add ──────────────────────────────────────────────────
-  if (lower.includes('add to cart') || lower.includes('add it') || lower.includes('buy') || lower.includes('purchase') || lower.includes('i want') || lower.includes('order this')) {
-    const product = PRODUCTS.find(p =>
-      lower.includes(p.name.toLowerCase()) ||
-      lower.includes(p.slug) ||
-      p.tags.some(t => lower.includes(t))
-    )
-    if (product && product.inStock) {
-      // Create a compatible Product type for the cart store
-      const mappedProduct = {
-        _id: product.id,
-        name: product.name,
-        slug: product.slug,
-        description: product.description,
-        price: product.price,
-        compareAtPrice: product.comparePrice || undefined,
-        images: ['/placeholder.png'], // Add proper mapping if available
-        category: product.category,
-        subCategory: product.category,
-        tags: product.tags,
-        stock: 10, // Assuming inStock means available
-        sku: product.slug,
-        status: 'active',
-        featured: product.isBestSeller,
-        isNew: product.isNew
-      } as unknown as Product
-
-      addItem(mappedProduct)
-      return {
-        role: 'bot',
-        text: `Added ${product.name} to your cart! 🛍️\n\nPKR ${product.price.toLocaleString()}${product.comparePrice ? ` (was PKR ${product.comparePrice.toLocaleString()})` : ''}\n\n${product.description}`,
-        type: 'quick_replies',
-        quickReplies: ['View cart', 'Checkout now', 'Continue shopping'],
-      }
-    }
-    if (product && !product.inStock) {
-      return { role: 'bot', text: `${product.name} is currently out of stock 😔\n\nFollow @nuura.pk on Instagram to be notified when it's back!`, type: 'quick_replies', quickReplies: ['Show available products'] }
-    }
-  }
-
-  // ── Clear cart ─────────────────────────────────────────────────
-  if (lower.includes('clear cart') || lower.includes('empty cart') || lower.includes('remove all')) {
-    clearCart()
-    return { role: 'bot', text: "Cart cleared! Fresh start 🌿 What would you like to add?", type: 'quick_replies', quickReplies: ['Show all products', 'Best sellers'] }
-  }
-
-  // ── Checkout ───────────────────────────────────────────────────
-  if (lower.includes('checkout') || lower.includes('check out') || lower.includes('proceed')) {
-    if (cart.items.length === 0) return { role: 'bot', text: "Your cart is empty! Add some products first 🛍️", type: 'quick_replies', quickReplies: ['Show all products'] }
-    return { role: 'bot', text: `Ready to checkout! 🎉\n\nYou have ${cart.items.length} item(s) totaling PKR ${cart.items.reduce((s, i) => s + i.product.price * i.quantity, 0).toLocaleString()}\n\nClick the button below to complete your order with Cash on Delivery, JazzCash, or EasyPaisa.`, type: 'quick_replies', quickReplies: ['Go to checkout →'] }
-  }
-
-  // ── Product search ─────────────────────────────────────────────
-  const searchTriggers = ['show', 'find', 'search', 'looking for', 'need', 'want', 'recommend', 'suggest', 'what do you have', 'products', 'self-care', 'accessor', 'bag', 'skincare', 'gua sha', 'jade', 'mirror', 'steamer', 'roller', 'clutch']
-  const isProductSearch = searchTriggers.some(t => lower.includes(t)) || extractPrice(lower)
-
-  if (isProductSearch) {
-    const results = findProducts(lower)
-    if (results.length > 0) {
-      const priceFilter = extractPrice(lower)
-      let intro = `Found ${results.length} product${results.length > 1 ? 's' : ''} for you! ✨`
-      if (priceFilter) intro = `Here are products ${priceFilter.max < 99999 ? `under PKR ${priceFilter.max.toLocaleString()}` : `over PKR ${priceFilter.min.toLocaleString()}`}:`
-      return { role: 'bot', text: intro, type: 'products', products: results }
-    }
-    return { role: 'bot', text: "No products match that search 🔍\n\nTry: 'show skincare products', 'bags under PKR 3,500', or 'best sellers'", type: 'quick_replies', quickReplies: ['Show all products', 'Self-care products', 'Accessories', 'Best sellers'] }
-  }
-
-  // ── Specific product info ──────────────────────────────────────
-  const mentionedProduct = PRODUCTS.find(p =>
-    lower.includes(p.name.toLowerCase()) ||
-    p.tags.some(t => lower.includes(t))
-  )
-  if (mentionedProduct) {
-    const disc = mentionedProduct.comparePrice ? Math.round((1 - mentionedProduct.price / mentionedProduct.comparePrice) * 100) : 0
-    return {
-      role: 'bot',
-      text: `**${mentionedProduct.name}**\n${mentionedProduct.tagline}\n\nPKR ${mentionedProduct.price.toLocaleString()}${mentionedProduct.comparePrice ? ` ~~PKR ${mentionedProduct.comparePrice.toLocaleString()}~~ (-${disc}%)` : ''}\n\n${mentionedProduct.description}\n\n${mentionedProduct.inStock ? '✅ In Stock' : '❌ Out of Stock'}`,
-      type: 'products',
-      products: [mentionedProduct],
-    }
-  }
-
-  // ── Coupon / discount ──────────────────────────────────────────
-  if (lower.includes('coupon') || lower.includes('discount') || lower.includes('promo') || lower.includes('code') || lower.includes('offer')) {
-    return { role: 'bot', text: "🎁 Current offers:\n\n• **NUURA10** — 10% off your first order\n• **GLOW5** — PKR 500 off orders above PKR 5,000\n• Free shipping on all orders over PKR 5,000!\n\nApply your code at checkout 💫", type: 'quick_replies', quickReplies: ['Show all products', 'Go to checkout'] }
-  }
-
-  // ── Shipping ───────────────────────────────────────────────────
-  if (lower.includes('ship') || lower.includes('deliver') || lower.includes('how long') || lower.includes('when will')) {
-    return { role: 'bot', text: "📦 Shipping Info:\n\n• Lahore, Karachi, Islamabad: 2-3 days\n• Other cities: 3-5 days\n• Free shipping on orders over PKR 5,000\n• Standard: PKR 150-300 by city\n\nWe use TCS and Leopard Couriers for safe delivery 🚚", type: 'quick_replies', quickReplies: ['Track my order', 'COD available?', 'Payment options'] }
-  }
-
-  // ── Payment ────────────────────────────────────────────────────
-  if (lower.includes('payment') || lower.includes('pay') || lower.includes('cod') || lower.includes('jazzcash') || lower.includes('easypaisa') || lower.includes('how to order')) {
-    return { role: 'bot', text: "💳 Payment Options:\n\n• 💵 Cash on Delivery (most popular!)\n• 📱 JazzCash\n• 📱 EasyPaisa\n• 📱 NayaPay\n\nFor digital payments: transfer the amount, then WhatsApp us your screenshot. Confirmed within 1-2 hours! 🇵🇰", type: 'quick_replies', quickReplies: ['Place an order', 'Shipping info', 'Return policy'] }
-  }
-
-  // ── Returns ────────────────────────────────────────────────────
-  if (lower.includes('return') || lower.includes('refund') || lower.includes('exchange') || lower.includes('policy')) {
-    return { role: 'bot', text: "↩️ Return Policy:\n\n• 7-day hassle-free returns\n• Item must be unused in original packaging\n• Damaged item? WhatsApp us a photo within 24 hours\n• Refunds processed in 3-5 business days\n• We replace damaged items immediately at no cost 💚", type: 'quick_replies', quickReplies: ['Contact support', 'Track my order'] }
-  }
-
-  // ── Skincare advice ────────────────────────────────────────────
-  if (lower.includes('routine') || lower.includes('skincare') || lower.includes('skin care') || lower.includes('advice') || lower.includes('how to use')) {
-    return {
-      role: 'bot',
-      text: "🌿 Morning Ritual (Nuura Edition):\n\n1. Cleanse\n2. Toner\n3. Serum\n4. Facial Oil → Gua Sha (sculpt outward!)\n5. Moisturizer\n6. SPF ☀️\n\nNight: Add Jade Roller after moisturizer. Steam 2-3x/week before serums — doubles absorption!\n\nConsistency is everything ✨",
-      type: 'quick_replies',
-      quickReplies: ['Show self-care products', 'Gua sha tips', 'Best for puffiness'],
-    }
-  }
-
-  if (lower.includes('puffy') || lower.includes('puffiness') || lower.includes('swollen')) {
-    return { role: 'bot', text: "For puffiness: 🧊\n\nStore your Jade Roller in the fridge overnight. Use the small end under eyes, large end on cheeks — always sweep outward toward ears. This drains lymphatic fluid.\n\n10 minutes = visible difference! Best done first thing in the morning 🌅", type: 'products', products: PRODUCTS.filter(p => p.slug === 'jade-face-roller') }
-  }
-
-  if (lower.includes('dark circle') || lower.includes('under eye')) {
-    return { role: 'bot', text: "For dark circles 👁️\n\nThe small end of the Jade Roller is perfect for under-eye area. Keep it cold, use gentle upward pressure. Consistent use over 2-3 weeks makes a real difference!\n\nAlso: stay hydrated and get sleep 😴", type: 'products', products: PRODUCTS.filter(p => p.slug === 'jade-face-roller') }
-  }
-
-  if (lower.includes('acne') || lower.includes('pimple') || lower.includes('breakout')) {
-    return { role: 'bot', text: "For acne-prone skin 🌿\n\nThe Facial Steamer is excellent — it deep cleanses pores without harsh chemicals. Use 2-3x weekly.\n\nAvoid Gua Sha on active breakouts — wait for skin to calm. Start with the Jade Roller once inflammation reduces.", type: 'products', products: PRODUCTS.filter(p => p.slug === 'facial-steamer') }
-  }
-
-  // ── Contact ────────────────────────────────────────────────────
-  if (lower.includes('contact') || lower.includes('whatsapp') || lower.includes('support') || lower.includes('help') || lower.includes('human')) {
-    return { role: 'bot', text: "📞 Contact Nuura:\n\n• WhatsApp: Your number here\n• Instagram: @nuura.pk\n• Response time: Under 2 hours\n• Hours: 10am–8pm daily 🇵🇰\n\nFor payment screenshots, WhatsApp is fastest!", type: 'quick_replies', quickReplies: ['Track my order', 'Return policy', 'Payment options'] }
-  }
-
-  // ── Goodbye ────────────────────────────────────────────────────
-  if (/^(bye|goodbye|thanks|thank you|shukriya|ok done|finished)/.test(lower)) {
-    return { role: 'bot', text: "You're welcome! Glow on ✨🌿\n\nFollow @nuura.pk for new drops and beauty tips. Come back anytime!", type: 'quick_replies', quickReplies: ['Browse products', 'Track my order'] }
-  }
-
-  // ── Default ────────────────────────────────────────────────────
-  return {
-    role: 'bot',
-    text: "I can help you with:\n\n🔍 Finding products\n🛒 Adding to cart\n📦 Tracking orders\n💳 Payment info\n🚚 Shipping details\n↩️ Returns\n✨ Skincare tips\n\nWhat would you like?",
-    type: 'quick_replies',
-    quickReplies: ['Show all products', 'Track my order', 'View cart', 'Skincare advice'],
-  }
-}
-
-// ── Product Card in chat ──────────────────────────────────────────
-function ChatProductCard({ product, onAdd }: { product: typeof PRODUCTS[0]; onAdd: (p: typeof PRODUCTS[0]) => void }) {
-  const disc = product.comparePrice ? Math.round((1 - product.price / product.comparePrice) * 100) : 0
-  return (
-    <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: '8px', overflow: 'hidden', marginBottom: '8px' }}>
-      <div style={{ background: product.category === 'self-care' ? '#F0EBE4' : '#EBF0F5', height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'rgba(27,46,31,0.15)' }}>✦</span>
-      </div>
-      <div style={{ padding: '10px 12px' }}>
-        <p style={{ fontFamily: 'var(--font-display)', fontSize: '14px', color: C.ink, margin: '0 0 2px', lineHeight: 1.2 }}>{product.name}</p>
-        <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: C.muted, margin: '0 0 8px' }}>{product.tagline}</p>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-          <div>
-            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: C.forest, fontWeight: 600 }}>PKR {product.price.toLocaleString()}</span>
-            {product.comparePrice && (
-              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: C.muted, textDecoration: 'line-through', marginLeft: '6px' }}>PKR {product.comparePrice.toLocaleString()}</span>
-            )}
-            {disc > 0 && <span style={{ background: 'rgba(27,46,31,0.08)', color: C.forest, fontSize: '10px', padding: '2px 6px', borderRadius: '4px', marginLeft: '4px' }}>-{disc}%</span>}
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
-          <a href={`/product/${product.slug}`}
-            style={{ flex: 1, padding: '7px', border: `1px solid ${C.border}`, background: 'transparent', color: C.ink, fontFamily: 'var(--font-sans)', fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase' as const, textDecoration: 'none', textAlign: 'center' as const, display: 'block', transition: 'all 200ms' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = C.forest }}
-            onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = C.border }}>
-            View
-          </a>
-          <button onClick={() => onAdd(product)}
-            style={{ flex: 2, padding: '7px', background: C.forest, color: C.cream, border: 'none', fontFamily: 'var(--font-sans)', fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase' as const, cursor: 'pointer', transition: 'background 200ms' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = C.gold; (e.currentTarget as HTMLButtonElement).style.color = C.forest }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = C.forest; (e.currentTarget as HTMLButtonElement).style.color = C.cream }}>
-            Add to Cart +
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Order tracker ─────────────────────────────────────────────────
-function OrderTracker({ order }: { order: typeof MOCK_ORDERS[string] & { number: string } }) {
-  const steps = ['confirmed', 'processing', 'shipped', 'delivered']
-  const currentStep = steps.indexOf(order.status)
-  const statusInfo = STATUS_LABELS[order.status] || { label: order.status, color: C.muted, icon: '📦' }
-
-  return (
-    <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: '8px', padding: '14px', marginTop: '8px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-        <div>
-          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: C.muted, margin: '0 0 2px', letterSpacing: '0.1em', textTransform: 'uppercase' as const }}>Order #{order.number}</p>
-          <p style={{ fontFamily: 'var(--font-display)', fontSize: '16px', color: C.ink, margin: 0 }}>{order.items.join(', ')}</p>
-        </div>
-        <span style={{ padding: '4px 10px', background: `${statusInfo.color}15`, color: statusInfo.color, fontFamily: 'var(--font-sans)', fontSize: '11px', borderRadius: '20px', whiteSpace: 'nowrap' as const }}>
-          {statusInfo.icon} {statusInfo.label}
-        </span>
-      </div>
-
-      {/* Timeline */}
-      {order.status !== 'pending_verification' && order.status !== 'cancelled' && (
-        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-          {steps.map((step, i) => (
-            <div key={step} style={{ display: 'flex', alignItems: 'center', flex: i < steps.length - 1 ? 1 : 'none' }}>
-              <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: i <= currentStep ? C.forest : C.border, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 300ms' }}>
-                <span style={{ fontSize: '10px' }}>{i < currentStep ? '✓' : i === currentStep ? '●' : '○'}</span>
-              </div>
-              {i < steps.length - 1 && (
-                <div style={{ flex: 1, height: '2px', background: i < currentStep ? C.forest : C.border, margin: '0 2px', transition: 'background 300ms' }} />
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: C.muted, margin: '10px 0 0' }}>
-        📅 ETA: {order.eta}
-      </p>
-    </div>
-  )
-}
-
-// ── Main chatbot component ────────────────────────────────────────
-// DEPRECATED: Use CustomChat from @/components/shared/CustomChat instead
-// This component is disabled to prevent duplicate chat button
-export function NuuraChatbot_DISABLED() {
+export function NuuraChatbot() {
   const [open, setOpen] = useState(false)
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [input, setInput] = useState('')
-  const [typing, setTyping] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [cart, setCart] = useState<CartItem[]>([])
   const [cartBump, setCartBump] = useState(false)
+  const [showReplies, setShowReplies] = useState(true)
+  const [conversationHistory, setConversationHistory] = useState<Array<{role:string;content:string}>>([])
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const cartStore = useCartStore()
 
   useEffect(() => {
     if (open && msgs.length === 0) {
       setMsgs([{
+        id: 'init',
         role: 'bot',
-        text: "Hi! I'm Noor, your Nuura beauty assistant ✨\n\nI can help you find products, track orders, manage your cart, and give skincare advice. What would you like to do?",
-        type: 'quick_replies',
-        quickReplies: ['Show all products', 'Best sellers', 'Track my order', 'Skincare advice'],
+        text: "Hi! I'm Noor, your Nuura beauty assistant ✨\n\nI'm powered by AI and can help you find products, track orders, answer skincare questions, and more! What would you like?",
+        type: 'replies',
+        replies: ['Show all products','Best sellers','Track my order','Skincare advice'],
+        isAI: false,
       }])
     }
     if (open) setTimeout(() => inputRef.current?.focus(), 300)
   }, [open])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [msgs, typing])
+    bottomRef.current?.scrollIntoView({ behavior:'smooth' })
+  }, [msgs, loading])
 
   const addToCart = useCallback((product: typeof PRODUCTS[0]) => {
-    // mapped product
-    const mappedProduct = {
-      _id: product.id,
-      name: product.name,
-      slug: product.slug,
-      description: product.description,
-      price: product.price,
-      compareAtPrice: product.comparePrice || undefined,
-      images: ['/placeholder.png'],
-      category: product.category,
-      subCategory: product.category,
-      tags: product.tags,
-      stock: 10,
-      sku: product.slug,
-      status: 'active',
-      featured: product.isBestSeller,
-      isNew: product.isNew
-    } as unknown as Product
-
-    cartStore.addItem(mappedProduct)
-    
+    setCart(prev => {
+      const ex = prev.find(i => i.product.id === product.id)
+      return ex
+        ? prev.map(i => i.product.id === product.id ? { ...i, qty:i.qty+1 } : i)
+        : [...prev, { product, qty:1 }]
+    })
     setCartBump(true)
     setTimeout(() => setCartBump(false), 600)
+    addBotMsg({
+      text: `Added ${product.name} to cart! 🛍️\nPKR ${product.price.toLocaleString()}`,
+      type: 'replies',
+      replies: ['View cart','Checkout','Continue shopping'],
+    })
+  }, [])
+
+  function addBotMsg(partial: Partial<Msg>) {
     setMsgs(prev => [...prev, {
+      id: `bot_${Date.now()}`,
       role: 'bot',
-      text: `Added ${product.name} to your cart! 🛍️`,
-      type: 'quick_replies',
-      quickReplies: ['View cart', 'Checkout now', 'Continue shopping'],
+      text: '',
+      ...partial,
     }])
-  }, [cartStore])
+  }
 
-  // Call Gemini API for unmatched queries
-  const callChatAPI = useCallback(async (
-    userMessage: string,
-    history: Msg[]
-  ): Promise<string | null> => {
+  const callAI = useCallback(async (userMessage: string, history: Array<{role:string;content:string}>): Promise<string | null> => {
     try {
-      const messages = history.slice(-4).map(m => ({
-        role: m.role === 'user' ? 'user' : 'assistant',
-        content: m.text
-      }))
-      messages.push({ role: 'user', content: userMessage })
-
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages })
+        body: JSON.stringify({
+          messages: [
+            ...history.slice(-6),
+            { role:'user', content:userMessage }
+          ],
+        }),
       })
       if (!response.ok) return null
       const data = await response.json()
@@ -537,148 +282,246 @@ export function NuuraChatbot_DISABLED() {
 
   const send = useCallback(async (text?: string) => {
     const msg = (text || input).trim()
-    if (!msg || typing) return
+    if (!msg || loading) return
     setInput('')
+    setShowReplies(false)
 
-    const userMsg: Msg = { role: 'user', text: msg }
+    // Add user message
+    const userMsg: Msg = { id:`user_${Date.now()}`, role:'user', text:msg }
     setMsgs(prev => [...prev, userMsg])
-    setTyping(true)
+    setLoading(true)
 
-    const delay = 600 + Math.random() * 700
-    setTimeout(async () => {
-      const response = processMessage(msg, { items: cartStore.items }, cartStore.addItem, cartStore.removeItem, cartStore.clearCart)
+    // Update history
+    const newHistory = [...conversationHistory, { role:'user', content:msg }]
+    setConversationHistory(newHistory)
 
-      // Handle checkout navigation
-      if (msg.toLowerCase().includes('go to checkout') || msg === 'Go to checkout →') {
-        window.location.href = '/checkout'
-        setTyping(false)
+    try {
+      // 1. Check for cart clear action
+      if (msg.toLowerCase().includes('clear cart') || msg.toLowerCase().includes('empty cart')) {
+        setCart([])
+        addBotMsg({ text:"Cart cleared! Fresh start 🌿", type:'replies', replies:['Show all products','Best sellers'] })
+        setLoading(false)
         return
       }
 
-      // Handle cart bump for add actions
-      if (response.type === 'quick_replies' && response.text.includes('Added')) {
-        setCartBump(true)
-        setTimeout(() => setCartBump(false), 600)
+      // 2. Check for checkout navigation
+      if (msg === 'Go to checkout →') {
+        window.location.href = '/checkout'
+        setLoading(false)
+        return
       }
 
-      // If it's default response, try API
-      let finalResponse = response
-      if (response.type === 'quick_replies' && response.text.includes('I can help you with:')) {
-        const apiResponse = await callChatAPI(msg, [...msgs, userMsg])
-        if (apiResponse) {
-          finalResponse = { role: 'bot', text: apiResponse, type: 'text' }
+      // 3. Try hardcoded responses first (instant, no API needed)
+      const hardcoded = getHardcodedResponse(msg, cart)
+      if (hardcoded) {
+        await new Promise(r => setTimeout(r, 500 + Math.random()*600))
+        setMsgs(prev => [...prev, hardcoded])
+        const botHistory = { role:'assistant', content:hardcoded.text }
+        setConversationHistory(prev => [...prev, botHistory])
+        setLoading(false)
+        return
+      }
+
+      // 4. Fall back to AI for anything not hardcoded
+      await new Promise(r => setTimeout(r, 800 + Math.random()*500))
+      const aiResponse = await callAI(msg, newHistory.slice(-8))
+
+      if (aiResponse) {
+        const botMsg: Msg = {
+          id: `bot_${Date.now()}`,
+          role: 'bot',
+          text: aiResponse,
+          type: 'text',
+          isAI: true,
+          replies: ['Ask another question','Show products','Track order'],
         }
+        setMsgs(prev => [...prev, botMsg])
+        setConversationHistory(prev => [...prev, { role:'assistant', content:aiResponse }])
+      } else {
+        addBotMsg({
+          text: "I'm not sure about that, but I'd love to help! Try asking about products, skincare, shipping, or returns 🌸",
+          type: 'replies',
+          replies: ['Show all products','Shipping info','Return policy'],
+        })
       }
+    } catch {
+      addBotMsg({
+        text: "Something went wrong. Please try again or WhatsApp @nuura.pk 🌿",
+        type: 'replies',
+        replies: ['Try again','Show products'],
+      })
+    }
 
-      setMsgs(prev => [...prev, finalResponse])
-      setTyping(false)
-    }, delay)
-  }, [input, typing, cartStore, msgs, callChatAPI])
+    setLoading(false)
+  }, [input, loading, cart, conversationHistory, callAI])
 
-  const cartTotal = cartStore.totalItems()
+  const cartTotal = cart.reduce((s,i) => s+i.qty, 0)
+
+  // Product card inside chat
+  const ChatCard = ({ p }: { p: typeof PRODUCTS[0] }) => {
+    const disc = p.comparePrice ? Math.round((1-p.price/p.comparePrice)*100) : 0
+    return (
+      <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:'8px', overflow:'hidden', marginBottom:'8px' }}>
+        <div style={{ background:p.category==='self-care'?'#F0ECE8':'#ECF0F5', height:'80px', display:'flex', alignItems:'center', justifyContent:'center', position:'relative' }}>
+          <span style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'rgba(27,46,31,0.1)' }}>✦</span>
+          {p.isNew && <span style={{ position:'absolute', top:'8px', left:'8px', background:C.forest, color:C.cream, fontSize:'9px', letterSpacing:'0.15em', textTransform:'uppercase' as const, padding:'3px 8px', borderRadius:'2px' }}>New</span>}
+          {p.isBest && <span style={{ position:'absolute', top:'8px', right:'8px', background:C.gold, color:C.forest, fontSize:'9px', letterSpacing:'0.15em', textTransform:'uppercase' as const, padding:'3px 8px', borderRadius:'2px' }}>⭐ Best</span>}
+        </div>
+        <div style={{ padding:'10px 12px' }}>
+          <p style={{ fontFamily:'var(--font-display)', fontSize:'14px', color:C.ink, margin:'0 0 2px', lineHeight:1.2 }}>{p.name}</p>
+          <p style={{ fontFamily:'var(--font-sans)', fontSize:'11px', color:C.muted, margin:'0 0 8px' }}>{p.tagline}</p>
+          <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'10px' }}>
+            <span style={{ fontFamily:'var(--font-sans)', fontSize:'13px', color:C.forest, fontWeight:600 }}>PKR {p.price.toLocaleString()}</span>
+            {p.comparePrice && <span style={{ fontSize:'11px', color:C.muted, textDecoration:'line-through' }}>PKR {p.comparePrice.toLocaleString()}</span>}
+            {disc>0 && <span style={{ background:'rgba(27,46,31,0.08)', color:C.forest, fontSize:'10px', padding:'2px 5px', borderRadius:'3px' }}>-{disc}%</span>}
+          </div>
+          <div style={{ display:'flex', gap:'6px' }}>
+            <a href={`/product/${p.slug}`}
+              style={{ flex:1, padding:'7px', border:`1px solid ${C.border}`, color:C.ink, fontFamily:'var(--font-sans)', fontSize:'10px', letterSpacing:'0.12em', textTransform:'uppercase' as const, textDecoration:'none', textAlign:'center' as const, display:'block', transition:'all 200ms', borderRadius:'2px' }}
+              onMouseEnter={e=>{(e.currentTarget as HTMLAnchorElement).style.borderColor=C.forest}}
+              onMouseLeave={e=>{(e.currentTarget as HTMLAnchorElement).style.borderColor=C.border}}>
+              View
+            </a>
+            <button onClick={()=>addToCart(p)}
+              style={{ flex:2, padding:'7px', background:C.forest, color:C.cream, border:'none', fontFamily:'var(--font-sans)', fontSize:'10px', letterSpacing:'0.12em', textTransform:'uppercase' as const, cursor:'pointer', transition:'background 200ms', borderRadius:'2px' }}
+              onMouseEnter={e=>{(e.currentTarget as HTMLButtonElement).style.background=C.gold;(e.currentTarget as HTMLButtonElement).style.color=C.forest}}
+              onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.background=C.forest;(e.currentTarget as HTMLButtonElement).style.color=C.cream}}>
+              Add to Cart +
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Order tracker
+  const OrderTracker = ({ order }: { order: NonNullable<Msg['order']> }) => {
+    const steps = ['confirmed','processing','shipped','delivered']
+    const curr = steps.indexOf(order.status)
+    const s = STATUS_MAP[order.status] || { label:order.status, icon:'📦', color:C.muted }
+    return (
+      <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:'8px', padding:'14px', marginTop:'8px' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'12px', gap:'8px' }}>
+          <div>
+            <p style={{ fontFamily:'var(--font-sans)', fontSize:'10px', color:C.muted, margin:'0 0 2px', letterSpacing:'0.1em', textTransform:'uppercase' as const }}>#{order.number}</p>
+            <p style={{ fontFamily:'var(--font-display)', fontSize:'15px', color:C.ink, margin:0 }}>{order.items.join(', ')}</p>
+          </div>
+          <span style={{ padding:'4px 10px', background:`${s.color}18`, color:s.color, fontFamily:'var(--font-sans)', fontSize:'10px', borderRadius:'20px', whiteSpace:'nowrap' as const }}>
+            {s.icon} {s.label}
+          </span>
+        </div>
+        <div style={{ display:'flex', gap:'3px', alignItems:'center', marginBottom:'10px' }}>
+          {steps.map((step,i) => (
+            <div key={step} style={{ display:'flex', alignItems:'center', flex:i<steps.length-1?1:'none' }}>
+              <div style={{ width:'22px', height:'22px', borderRadius:'50%', background:i<=curr?C.forest:C.border, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:'10px', color:i<=curr?C.cream:C.muted, transition:'background 300ms' }}>
+                {i<curr?'✓':i===curr?'●':'○'}
+              </div>
+              {i<steps.length-1 && <div style={{ flex:1, height:'2px', background:i<curr?C.forest:C.border, margin:'0 2px', transition:'background 300ms' }} />}
+            </div>
+          ))}
+        </div>
+        <p style={{ fontFamily:'var(--font-sans)', fontSize:'12px', color:C.muted, margin:0 }}>📅 ETA: {order.eta}</p>
+      </div>
+    )
+  }
 
   return (
     <>
-      {/* Chat window */}
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-            style={{
-              position: 'fixed', bottom: '5.5rem', right: '1.5rem',
-              width: 'min(400px, calc(100vw - 3rem))', height: '580px',
-              background: C.white, border: `1px solid ${C.border}`,
-              boxShadow: '0 32px 80px rgba(11,26,15,0.18)',
-              zIndex: 89, display: 'flex', flexDirection: 'column', overflow: 'hidden',
-            }}
+            initial={{ opacity:0, y:20, scale:0.95 }}
+            animate={{ opacity:1, y:0, scale:1 }}
+            exit={{ opacity:0, y:20, scale:0.95 }}
+            transition={{ duration:0.3, ease:[0.25,0.1,0.25,1] }}
+            style={{ position:'fixed', bottom:'5.5rem', right:'1.5rem', width:'min(400px, calc(100vw - 3rem))', height:'600px', background:C.white, border:`1px solid ${C.border}`, boxShadow:'0 32px 80px rgba(11,26,15,0.2)', zIndex:89, display:'flex', flexDirection:'column', overflow:'hidden', borderRadius:'12px' }}
           >
             {/* Header */}
-            <div style={{ background: C.forest, padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'rgba(212,168,83,0.15)', border: '1px solid rgba(212,168,83,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Sparkles size={16} color={C.gold} strokeWidth={1.5} />
+            <div style={{ background:C.forest, padding:'1.25rem 1.5rem', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+                <div style={{ width:'40px', height:'40px', borderRadius:'50%', background:'rgba(212,168,83,0.15)', border:'1px solid rgba(212,168,83,0.3)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <Sparkles size={17} color={C.gold} strokeWidth={1.5} />
                 </div>
                 <div>
-                  <p style={{ fontFamily: 'var(--font-accent)', fontSize: '18px', letterSpacing: '0.15em', color: C.cream, margin: 0, textTransform: 'uppercase', lineHeight: 1 }}>Noor</p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
-                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4CAF50', display: 'block' }} />
-                    <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'rgba(212,168,83,0.8)', margin: 0 }}>Beauty Assistant · Online</p>
+                  <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                    <p style={{ fontFamily:'var(--font-accent)', fontSize:'19px', letterSpacing:'0.15em', color:C.cream, margin:0, textTransform:'uppercase', lineHeight:1 }}>Noor</p>
+                    <span style={{ background:'rgba(212,168,83,0.2)', color:C.gold, fontFamily:'var(--font-sans)', fontSize:'9px', letterSpacing:'0.15em', textTransform:'uppercase' as const, padding:'2px 7px', borderRadius:'10px' }}>AI</span>
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', gap:'5px', marginTop:'3px' }}>
+                    <span style={{ width:'6px', height:'6px', borderRadius:'50%', background:'#4CAF50', display:'block' }} />
+                    <p style={{ fontFamily:'var(--font-sans)', fontSize:'11px', color:'rgba(212,168,83,0.75)', margin:0 }}>Beauty Assistant · Online</p>
                   </div>
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                {/* Cart indicator */}
+              <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
                 {cartTotal > 0 && (
-                  <motion.div
-                    animate={cartBump ? { scale: [1, 1.3, 1] } : { scale: 1 }}
-                    transition={{ duration: 0.3 }}
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(212,168,83,0.15)', padding: '5px 10px', borderRadius: '20px', cursor: 'pointer' }}
-                    onClick={() => send('view cart')}
-                  >
+                  <motion.div animate={cartBump?{ scale:[1,1.3,1] }:{ scale:1 }} transition={{ duration:0.3 }}
+                    style={{ display:'flex', alignItems:'center', gap:'5px', background:'rgba(212,168,83,0.15)', padding:'5px 10px', borderRadius:'20px', cursor:'pointer' }}
+                    onClick={()=>send('view my cart')}>
                     <ShoppingBag size={13} color={C.gold} strokeWidth={1.5} />
-                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: C.gold, fontWeight: 600 }}>{cartTotal}</span>
+                    <span style={{ fontFamily:'var(--font-sans)', fontSize:'12px', color:C.gold, fontWeight:600 }}>{cartTotal}</span>
                   </motion.div>
                 )}
-                <button onClick={() => setOpen(false)}
-                  style={{ color: 'rgba(245,240,230,0.4)', background: 'transparent', border: 0, cursor: 'pointer', transition: 'color 200ms', padding: '4px' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = C.cream }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(245,240,230,0.4)' }}>
+                <button onClick={()=>setOpen(false)} style={{ color:'rgba(245,240,230,0.4)', background:'transparent', border:0, cursor:'pointer', transition:'color 200ms' }}
+                  onMouseEnter={e=>{(e.currentTarget as HTMLButtonElement).style.color=C.cream}}
+                  onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.color='rgba(245,240,230,0.4)'}}>
                   <X size={20} strokeWidth={1.5} />
                 </button>
               </div>
             </div>
 
+            {/* Quick replies bar */}
+            {showReplies && msgs.length <= 1 && (
+              <div style={{ padding:'10px 14px', borderBottom:`1px solid ${C.border}`, display:'flex', gap:'6px', overflowX:'auto', flexShrink:0 }} className="hide-scrollbar">
+                {QUICK_REPLIES.map((qr,i) => (
+                  <button key={i} onClick={()=>send(qr.msg)}
+                    style={{ padding:'6px 12px', border:`1px solid ${C.border}`, background:'transparent', fontFamily:'var(--font-sans)', fontSize:'11px', color:C.muted, cursor:'pointer', borderRadius:'20px', transition:'all 200ms', whiteSpace:'nowrap' as const, flexShrink:0 }}
+                    onMouseEnter={e=>{(e.currentTarget as HTMLButtonElement).style.borderColor=C.gold;(e.currentTarget as HTMLButtonElement).style.color=C.forest}}
+                    onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.borderColor=C.border;(e.currentTarget as HTMLButtonElement).style.color=C.muted}}>
+                    {qr.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Messages */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {msgs.map((msg, i) => (
-                <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-                  {/* Message bubble */}
-                  <div style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: '8px' }}>
-                    {msg.role === 'bot' && (
-                      <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: C.forest, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, alignSelf: 'flex-end' }}>
+            <div style={{ flex:1, overflowY:'auto', padding:'1.25rem', display:'flex', flexDirection:'column', gap:'1rem' }}>
+              {msgs.map((msg) => (
+                <motion.div key={msg.id} initial={{ opacity:0, y:8 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.3 }}>
+                  <div style={{ display:'flex', justifyContent:msg.role==='user'?'flex-end':'flex-start', alignItems:'flex-end', gap:'8px' }}>
+                    {msg.role==='bot' && (
+                      <div style={{ width:'28px', height:'28px', borderRadius:'50%', background:C.forest, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                         <Sparkles size={12} color={C.gold} strokeWidth={1.5} />
                       </div>
                     )}
-                    <div style={{
-                      maxWidth: '82%', padding: '10px 14px',
-                      background: msg.role === 'user' ? C.forest : C.offwhite,
-                      color: msg.role === 'user' ? C.cream : C.ink,
-                      fontFamily: 'var(--font-sans)', fontSize: '13px', lineHeight: 1.65,
-                      borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                      whiteSpace: 'pre-wrap' as const,
-                    }}>
-                      {msg.text}
-                    </div>
+                    {msg.text && (
+                      <div style={{ maxWidth:'80%', padding:'10px 14px', background:msg.role==='user'?C.forest:C.offwhite, color:msg.role==='user'?C.cream:C.ink, fontFamily:'var(--font-sans)', fontSize:'13px', lineHeight:1.65, borderRadius:msg.role==='user'?'18px 18px 4px 18px':'18px 18px 18px 4px', whiteSpace:'pre-wrap' as const }}>
+                        {msg.text}
+                        {msg.isAI && <span style={{ display:'block', marginTop:'6px', fontSize:'10px', color:msg.role==='user'?'rgba(245,240,230,0.5)':C.muted, letterSpacing:'0.1em' }}>✦ AI Response</span>}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Product cards */}
-                  {msg.type === 'products' && msg.products && (
-                    <div style={{ marginLeft: '36px', marginTop: '8px' }}>
-                      {msg.products.map(p => (
-                        <ChatProductCard key={p.id} product={p} onAdd={addToCart} />
-                      ))}
+                  {msg.type==='products' && msg.products && (
+                    <div style={{ marginLeft:'36px', marginTop:'8px' }}>
+                      {msg.products.map(p => <ChatCard key={p.id} p={p} />)}
                     </div>
                   )}
 
-                  {/* Order tracker */}
-                  {msg.type === 'order' && msg.order && (
-                    <div style={{ marginLeft: '36px', marginTop: '4px' }}>
+                  {msg.type==='order' && msg.order && (
+                    <div style={{ marginLeft:'36px', marginTop:'4px' }}>
                       <OrderTracker order={msg.order} />
                     </div>
                   )}
 
-                  {/* Quick replies */}
-                  {msg.type === 'quick_replies' && msg.quickReplies && msg.role === 'bot' && (
-                    <div style={{ marginLeft: '36px', marginTop: '8px', display: 'flex', flexWrap: 'wrap' as const, gap: '6px' }}>
-                      {msg.quickReplies.map((qr, qi) => (
-                        <button key={qi} onClick={() => send(qr)}
-                          style={{ padding: '6px 14px', border: `1px solid ${C.border}`, background: 'transparent', fontFamily: 'var(--font-sans)', fontSize: '12px', color: C.ink, cursor: 'pointer', borderRadius: '20px', transition: 'all 200ms', display: 'flex', alignItems: 'center', gap: '4px' }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = C.gold; (e.currentTarget as HTMLButtonElement).style.color = C.forest; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(212,168,83,0.05)' }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = C.border; (e.currentTarget as HTMLButtonElement).style.color = C.ink; (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}>
-                          {qr} <ChevronRight size={12} strokeWidth={1.5} />
+                  {msg.replies && msg.role==='bot' && (
+                    <div style={{ marginLeft:'36px', marginTop:'8px', display:'flex', flexWrap:'wrap' as const, gap:'6px' }}>
+                      {msg.replies.map((r,ri) => (
+                        <button key={ri} onClick={()=>send(r)}
+                          style={{ padding:'6px 14px', border:`1px solid ${C.border}`, background:'transparent', fontFamily:'var(--font-sans)', fontSize:'12px', color:C.ink, cursor:'pointer', borderRadius:'20px', transition:'all 200ms', display:'flex', alignItems:'center', gap:'4px' }}
+                          onMouseEnter={e=>{(e.currentTarget as HTMLButtonElement).style.borderColor=C.gold;(e.currentTarget as HTMLButtonElement).style.color=C.forest;(e.currentTarget as HTMLButtonElement).style.background='rgba(212,168,83,0.05)'}}
+                          onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.borderColor=C.border;(e.currentTarget as HTMLButtonElement).style.color=C.ink;(e.currentTarget as HTMLButtonElement).style.background='transparent'}}>
+                          {r} <ChevronRight size={11} strokeWidth={1.5} />
                         </button>
                       ))}
                     </div>
@@ -686,16 +529,15 @@ export function NuuraChatbot_DISABLED() {
                 </motion.div>
               ))}
 
-              {/* Typing indicator */}
-              {typing && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
-                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: C.forest, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {loading && (
+                <motion.div initial={{ opacity:0, y:8 }} animate={{ opacity:1, y:0 }} style={{ display:'flex', alignItems:'flex-end', gap:'8px' }}>
+                  <div style={{ width:'28px', height:'28px', borderRadius:'50%', background:C.forest, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                     <Sparkles size={12} color={C.gold} strokeWidth={1.5} />
                   </div>
-                  <div style={{ padding: '12px 16px', background: C.offwhite, borderRadius: '18px 18px 18px 4px', display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    {[0, 1, 2].map(j => (
-                      <motion.div key={j} animate={{ y: [0, -5, 0] }} transition={{ duration: 0.6, delay: j * 0.15, repeat: Infinity }}
-                        style={{ width: '5px', height: '5px', borderRadius: '50%', background: C.muted }} />
+                  <div style={{ padding:'12px 16px', background:C.offwhite, borderRadius:'18px 18px 18px 4px', display:'flex', gap:'4px', alignItems:'center' }}>
+                    {[0,1,2].map(j => (
+                      <motion.div key={j} animate={{ y:[0,-5,0] }} transition={{ duration:0.6, delay:j*0.15, repeat:Infinity }}
+                        style={{ width:'5px', height:'5px', borderRadius:'50%', background:C.muted }} />
                     ))}
                   </div>
                 </motion.div>
@@ -704,51 +546,38 @@ export function NuuraChatbot_DISABLED() {
             </div>
 
             {/* Input */}
-            <div style={{ padding: '0.875rem 1.25rem', borderTop: `1px solid ${C.border}`, display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0, background: C.white }}>
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') send() }}
+            <div style={{ padding:'0.875rem 1.25rem', borderTop:`1px solid ${C.border}`, display:'flex', gap:'10px', alignItems:'center', flexShrink:0 }}>
+              <input ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')send()}}
                 placeholder="Search products, track order, ask anything..."
-                style={{ flex: 1, border: `1px solid ${C.border}`, padding: '10px 16px', fontFamily: 'var(--font-sans)', fontSize: '13px', color: C.ink, background: 'transparent', outline: 'none', borderRadius: '24px', transition: 'border-color 200ms' }}
-                onFocus={e => { e.currentTarget.style.borderColor = C.gold }}
-                onBlur={e => { e.currentTarget.style.borderColor = C.border }}
-              />
-              <button onClick={() => send()}
-                style={{ width: '42px', height: '42px', borderRadius: '50%', background: input.trim() ? C.forest : C.border, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: input.trim() ? 'pointer' : 'default', flexShrink: 0, transition: 'all 200ms' }}
-                onMouseEnter={e => { if (input.trim()) (e.currentTarget as HTMLButtonElement).style.background = C.gold }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = input.trim() ? C.forest : C.border }}>
-                <Send size={16} color={input.trim() ? C.cream : C.white} strokeWidth={1.5} />
+                style={{ flex:1, border:`1px solid ${C.border}`, padding:'10px 16px', fontFamily:'var(--font-sans)', fontSize:'13px', color:C.ink, background:'transparent', outline:'none', borderRadius:'24px', transition:'border-color 200ms' }}
+                onFocus={e=>{e.currentTarget.style.borderColor=C.gold}}
+                onBlur={e=>{e.currentTarget.style.borderColor=C.border}} />
+              <button onClick={()=>send()}
+                style={{ width:'42px', height:'42px', borderRadius:'50%', background:input.trim()?C.forest:C.border, border:'none', display:'flex', alignItems:'center', justifyContent:'center', cursor:input.trim()?'pointer':'default', flexShrink:0, transition:'all 200ms' }}
+                onMouseEnter={e=>{if(input.trim())(e.currentTarget as HTMLButtonElement).style.background=C.gold}}
+                onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.background=input.trim()?C.forest:C.border}}>
+                <Send size={16} color={input.trim()?C.cream:C.white} strokeWidth={1.5} />
               </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Toggle button */}
-      <motion.button
-        onClick={() => setOpen(v => !v)}
-        whileHover={{ scale: 1.08 }}
-        whileTap={{ scale: 0.95 }}
-        data-cursor="hover"
-        style={{ position: 'fixed', bottom: '1.5rem', right: '1.5rem', width: '58px', height: '58px', borderRadius: '50%', background: C.forest, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 90, boxShadow: '0 8px 32px rgba(11,26,15,0.3)' }}
-      >
-        {/* Cart badge on toggle */}
+      {/* Toggle */}
+      <motion.button onClick={()=>setOpen(v=>!v)} whileHover={{ scale:1.08 }} whileTap={{ scale:0.95 }} data-cursor="hover"
+        style={{ position:'fixed', bottom:'1.5rem', right:'1.5rem', width:'58px', height:'58px', borderRadius:'50%', background:C.forest, border:'none', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', zIndex:90, boxShadow:'0 8px 32px rgba(11,26,15,0.3)' }}>
         <AnimatePresence>
-          {cartTotal > 0 && !open && (
-            <motion.div
-              initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
-              style={{ position: 'absolute', top: '-4px', right: '-4px', width: '20px', height: '20px', borderRadius: '50%', background: C.gold, color: C.forest, fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {cartTotal>0 && !open && (
+            <motion.div initial={{ scale:0 }} animate={{ scale:1 }} exit={{ scale:0 }}
+              style={{ position:'absolute', top:'-4px', right:'-4px', width:'20px', height:'20px', borderRadius:'50%', background:C.gold, color:C.forest, fontFamily:'var(--font-sans)', fontSize:'11px', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center' }}>
               {cartTotal}
             </motion.div>
           )}
         </AnimatePresence>
-
         <AnimatePresence mode="wait">
           {open
-            ? <motion.div key="x" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.2 }}><X size={22} color={C.gold} strokeWidth={1.5} /></motion.div>
-            : <motion.div key="chat" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.2 }}><MessageCircle size={22} color={C.gold} strokeWidth={1.5} /></motion.div>
+            ? <motion.div key="x" initial={{ rotate:-90,opacity:0 }} animate={{ rotate:0,opacity:1 }} exit={{ rotate:90,opacity:0 }} transition={{ duration:0.2 }}><X size={22} color={C.gold} strokeWidth={1.5} /></motion.div>
+            : <motion.div key="chat" initial={{ rotate:90,opacity:0 }} animate={{ rotate:0,opacity:1 }} exit={{ rotate:-90,opacity:0 }} transition={{ duration:0.2 }}><MessageCircle size={22} color={C.gold} strokeWidth={1.5} /></motion.div>
           }
         </AnimatePresence>
       </motion.button>

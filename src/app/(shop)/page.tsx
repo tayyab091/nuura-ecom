@@ -178,7 +178,7 @@ function PCard({ p, i }: { p:typeof PRODUCTS[0]; i:number }) {
           <Image src={p.img} alt={p.name} fill sizes="(max-width:768px) 72vw, 25vw" style={{ objectFit:'cover', transition:'transform 800ms ease', transform: hov?'scale(1.07)':'scale(1)' }} />
           <div style={{ position:'absolute', inset:0, background: hov?'rgba(11,26,15,0.15)':'transparent', transition:'background 400ms' }} />
           {p.isNew && <span style={{ position:'absolute', top:'14px', left:'14px', background:C.forest, color:C.cream, fontFamily:'var(--font-sans)', fontSize:'9px', letterSpacing:'0.2em', textTransform:'uppercase' as const, padding:'5px 12px' }}>New</span>}
-          <div style={{ position:'absolute', bottom:'14px', right:'14px', fontFamily:'var(--font-display)', fontSize:'2.5rem', color:'rgba(255,255,255,0.2)', lineHeight:1 }}>0{i+1}</div>
+          <div style={{ position:'absolute', bottom:'14px', right:'14px', fontFamily:'var(--font-display)', fontSize:'2.5rem', color:'rgba(255,255,255,0.2)', lineHeight:1 }}>{String(i + 1).padStart(2, '0')}</div>
           <div style={{ position:'absolute', bottom:0, left:0, right:0, background:'rgba(27,46,31,0.9)', backdropFilter:'blur(4px)', padding:'14px', textAlign:'center' as const, transform: hov?'translateY(0)':'translateY(100%)', transition:'transform 350ms ease', fontFamily:'var(--font-sans)', fontSize:'10px', letterSpacing:'0.25em', textTransform:'uppercase' as const, color:C.gold }}>
             Quick Add +
           </div>
