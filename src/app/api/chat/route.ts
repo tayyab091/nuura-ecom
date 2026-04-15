@@ -38,6 +38,8 @@ type ChatApiPayload = {
   order?: OrderPayload
   action?: Action
   suggestions?: string[]
+  rateLimited?: boolean
+  retryAfterSeconds?: number
   fallback?: boolean
   source?: 'db' | 'openrouter' | 'fallback'
 }
@@ -54,7 +56,8 @@ type ChatRequestBody = {
   context?: ChatContext
 }
 
-const MODEL = 'nvidia/nemotron-3-super-120b-a12b:free'
+const PRIMARY_MODEL = 'nvidia/nemotron-3-super-120b-a12b:free'
+const FALLBACK_MODEL = 'openai/gpt-oss-120b:free'
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 
 const BASE_SUGGESTIONS = [
@@ -73,45 +76,66 @@ function normalize(s: string) {
   return (s || '').toLowerCase().trim()
 }
 
+function isGreetingIntent(lowerMsg: string) {
+  const cleaned = (lowerMsg || '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!cleaned) return false
+
+  const tokens = cleaned.split(' ').filter(Boolean)
+  if (tokens.length > 4) return false
+
+  const joined = tokens.join(' ')
+
+  if (
+    joined === 'hi' ||
+    joined === 'hello' ||
+    joined === 'hey' ||
+    joined === 'hiya' ||
+    joined === 'salam' ||
+    joined === 'assalam' ||
+    joined === 'assalam alaikum' ||
+    joined === 'assalam o alaikum' ||
+    joined === 'asalam alaikum' ||
+    joined === 'aoa' ||
+    joined === 'a o a'
+  ) {
+    return true
+  }
+
+  if (joined.startsWith('good morning') || joined.startsWith('good afternoon') || joined.startsWith('good evening')) {
+    return true
+  }
+
+  return false
+}
+
 function safeNumber(n: unknown) {
   const num = typeof n === 'number' ? n : parseFloat(String(n))
   return Number.isFinite(num) ? num : 0
 }
 
-function safeDate(value: unknown) {
-  if (value instanceof Date) return value
-  const d = new Date(typeof value === 'string' || typeof value === 'number' ? value : String(value ?? ''))
-  return Number.isFinite(d.valueOf()) ? d : new Date()
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
-}
-
-function toClientProduct(p: unknown): ClientProduct {
-  const r = asRecord(p)
-  const compareRaw = r['comparePrice']
-  const compareNum = compareRaw == null ? undefined : safeNumber(compareRaw)
-
+function toClientProduct(p: any): ClientProduct {
   return {
-    _id: String(r['_id'] ?? r['id'] ?? ''),
-    slug: String(r['slug'] ?? ''),
-    name: String(r['name'] ?? ''),
-    tagline: String(r['tagline'] ?? ''),
-    description: String(r['description'] ?? ''),
-    price: safeNumber(r['price']),
-    comparePrice: compareNum && compareNum > 0 ? compareNum : undefined,
-    images: Array.isArray(r['images']) ? (r['images'] as unknown[]).map(String) : [],
-    category: r['category'] === 'accessories' ? 'accessories' : 'self-care',
-    tags: Array.isArray(r['tags']) ? (r['tags'] as unknown[]).map(String) : [],
-    inStock: Boolean(r['inStock'] ?? true),
-    stockCount: safeNumber(r['stockCount'] ?? 0),
-    isFeatured: Boolean(r['isFeatured'] ?? false),
-    isNewDrop: Boolean(r['isNewDrop'] ?? false),
-    isBestSeller: Boolean(r['isBestSeller'] ?? false),
-    weight: typeof r['weight'] === 'number' ? (r['weight'] as number) : undefined,
-    createdAt: safeDate(r['createdAt']),
-    updatedAt: safeDate(r['updatedAt']),
+    _id: String(p?._id ?? p?.id ?? ''),
+    slug: String(p?.slug ?? ''),
+    name: String(p?.name ?? ''),
+    tagline: String(p?.tagline ?? ''),
+    description: String(p?.description ?? ''),
+    price: safeNumber(p?.price),
+    comparePrice: p?.comparePrice ?? undefined,
+    images: Array.isArray(p?.images) ? p.images.map(String) : [],
+    category: p?.category === 'accessories' ? 'accessories' : 'self-care',
+    tags: Array.isArray(p?.tags) ? p.tags.map(String) : [],
+    inStock: Boolean(p?.inStock ?? true),
+    stockCount: safeNumber(p?.stockCount ?? 0),
+    isFeatured: Boolean(p?.isFeatured ?? false),
+    isNewDrop: Boolean(p?.isNewDrop ?? false),
+    isBestSeller: Boolean(p?.isBestSeller ?? false),
+    weight: typeof p?.weight === 'number' ? p.weight : undefined,
+    createdAt: p?.createdAt ?? new Date().toISOString(),
+    updatedAt: p?.updatedAt ?? new Date().toISOString(),
   }
 }
 
@@ -259,7 +283,7 @@ async function dbSearchProducts(lowerMsg: string) {
   const categoryFilter = extractCategory(lowerMsg)
   const keywords = extractKeywords(lowerMsg)
 
-  const query: Record<string, unknown> = { inStock: { $ne: false } }
+  const query: any = { inStock: true }
   if (categoryFilter) query.category = categoryFilter
   if (priceRange) query.price = { $gte: priceRange.min, $lte: priceRange.max }
 
@@ -273,7 +297,7 @@ async function dbSearchProducts(lowerMsg: string) {
     ]
   }
 
-  const sort: Record<string, 1 | -1> = {}
+  const sort: any = {}
   if (lowerMsg.includes('new') || lowerMsg.includes('latest')) sort.isNewDrop = -1
   if (lowerMsg.includes('best') || lowerMsg.includes('popular') || lowerMsg.includes('trending')) sort.isBestSeller = -1
   if (Object.keys(sort).length === 0) sort.createdAt = -1
@@ -347,7 +371,7 @@ async function dbRecommendFromOrders(context: ChatContext | undefined, limit = 6
       { $limit: limit },
     ])
 
-    const ids = (also as Array<{ _id?: unknown }>).map((x) => x?._id).filter(Boolean).map(String)
+    const ids = also.map((x: any) => x._id).filter(Boolean)
     if (ids.length > 0) {
       const products = await Product.find({ _id: { $in: ids }, inStock: true })
         .select('slug name tagline description price comparePrice images category tags inStock stockCount isFeatured isNewDrop isBestSeller weight createdAt updatedAt')
@@ -432,22 +456,7 @@ function isRecommendationIntent(lowerMsg: string) {
 }
 
 function isAddIntent(lowerMsg: string) {
-  // Keep this precise; otherwise suggestions like "Add one to cart" can misfire and
-  // generic sentences containing " add " will be incorrectly treated as cart actions.
-  if (lowerMsg.includes('/product/')) return true
-  if (lowerMsg.includes('add to cart')) return true
-  if (lowerMsg.startsWith('add ')) return true
-  // Allow "... add ... cart ..." phrasing.
-  return lowerMsg.includes('add') && lowerMsg.includes('cart')
-}
-
-function buildAddSuggestions(products: ClientProduct[]) {
-  const names = products
-    .map((p) => String(p.name || '').trim())
-    .filter(Boolean)
-    .slice(0, 3)
-  if (names.length === 0) return []
-  return names.map((n) => `Add ${n}`)
+  return lowerMsg.startsWith('add ') || lowerMsg.includes(' add ') || lowerMsg.includes('add to cart')
 }
 
 function isRemoveIntent(lowerMsg: string) {
@@ -521,7 +530,7 @@ function etaTextForStatus(orderStatus: string) {
 }
 
 async function dbGetOrder(orderNumber: string): Promise<OrderPayload | null> {
-  const order = (await Order.findOne({ orderNumber }).lean()) as Record<string, unknown> | null
+  const order = (await Order.findOne({ orderNumber }).lean()) as any
   if (!order) return null
 
   return {
@@ -531,17 +540,14 @@ async function dbGetOrder(orderNumber: string): Promise<OrderPayload | null> {
     paymentMethod: String(order.paymentMethod),
     total: safeNumber(order.total),
     items: Array.isArray(order.items)
-      ? (order.items as unknown[]).map((i) => {
-          const it = asRecord(i)
-          return {
-            name: String(it['name'] ?? ''),
-            quantity: safeNumber(it['quantity']),
-            price: safeNumber(it['price']),
-            image: it['image'] ? String(it['image']) : undefined,
-          }
-        })
+      ? order.items.map((i: any) => ({
+          name: String(i.name ?? ''),
+          quantity: safeNumber(i.quantity),
+          price: safeNumber(i.price),
+          image: i.image ? String(i.image) : undefined,
+        }))
       : [],
-    createdAt: safeDate(order.createdAt).toISOString(),
+    createdAt: order.createdAt ? new Date(order.createdAt).toISOString() : new Date().toISOString(),
     timeline: buildOrderTimeline(String(order.orderStatus)),
     etaText: etaTextForStatus(String(order.orderStatus)),
   }
@@ -671,18 +677,12 @@ async function getLiveCatalogSummary(maxItems = 20) {
       .lean()
 
     const lines = products
-      .map((p) => {
-        const r = asRecord(p)
-        const compare = r['comparePrice'] == null ? 0 : safeNumber(r['comparePrice'])
-        const disc = compare > 0 ? ` (was PKR ${compare.toLocaleString()})` : ''
-        const badges = [r['isNewDrop'] ? 'New Drop' : '', r['isBestSeller'] ? 'Best Seller' : '']
+      .map((p: any) => {
+        const disc = p.comparePrice ? ` (was PKR ${p.comparePrice.toLocaleString()})` : ''
+        const badges = [p.isNewDrop ? 'New Drop' : '', p.isBestSeller ? 'Best Seller' : '']
           .filter(Boolean)
           .join(', ')
-        const name = String(r['name'] ?? '')
-        const slug = String(r['slug'] ?? '')
-        const price = safeNumber(r['price'])
-        const category = String(r['category'] ?? '')
-        return `- ${name}: PKR ${price.toLocaleString()}${disc} | ${category} | /product/${slug}${badges ? ` | ${badges}` : ''}`
+        return `- ${p.name}: PKR ${p.price.toLocaleString()}${disc} | ${p.category} | /product/${p.slug}${badges ? ` | ${badges}` : ''}`
       })
       .join('\n')
 
@@ -702,6 +702,86 @@ function extractSlugsFromText(text: string): string[] {
     if (m[1]) slugs.add(m[1].toLowerCase())
   }
   return [...slugs].slice(0, 8)
+}
+
+function shouldFallbackOpenRouter(status: number, errText: string) {
+  if (
+    status === 400 ||
+    status === 402 ||
+    status === 403 ||
+    status === 404 ||
+    status === 408 ||
+    status === 409 ||
+    status === 425
+  ) {
+    return true
+  }
+  if (status >= 500) return true
+
+  const t = String(errText || '').toLowerCase()
+  return (
+    t.includes('quota') ||
+    t.includes('insufficient') ||
+    t.includes('rate limit') ||
+    t.includes('ratelimit') ||
+    t.includes('too many requests') ||
+    t.includes('credits') ||
+    t.includes('payment required')
+  )
+}
+
+type OpenRouterOk = {
+  ok: true
+  status: number
+  rawText: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: any
+}
+
+type OpenRouterErr = {
+  ok: false
+  status: number
+  errText: string
+  retryAfterSeconds: number | null
+}
+
+async function callOpenRouter(args: {
+  apiKey: string
+  model: string
+  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+}): Promise<OpenRouterOk | OpenRouterErr> {
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${args.apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://nuura-temp.vercel.app',
+      'X-Title': 'Nuura Beauty Assistant',
+    },
+    body: JSON.stringify({
+      model: args.model,
+      max_tokens: 400,
+      temperature: 0.7,
+      messages: args.messages,
+    }),
+  })
+
+  if (!response.ok) {
+    const retryAfterHeader = response.headers.get('retry-after')
+    const retryAfterSeconds = retryAfterHeader ? Number.parseInt(retryAfterHeader, 10) : null
+    const errText = await response.text().catch(() => '')
+    return {
+      ok: false as const,
+      status: response.status,
+      errText,
+      retryAfterSeconds: Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : null,
+    }
+  }
+
+  const data = await response.json().catch(() => null)
+  const content = data?.choices?.[0]?.message?.content
+  const rawText = content ? String(content) : ''
+  return { ok: true as const, status: response.status, rawText, data }
 }
 
 async function productsBySlugs(slugs: string[]): Promise<ClientProduct[]> {
@@ -764,6 +844,17 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ suggestions: buildSuggestions(msg) } satisfies Partial<ChatApiPayload>)
+  }
+
+  // Greeting (keep the bot responsive even if AI is down)
+  if (isGreetingIntent(lowerMsg)) {
+    return NextResponse.json({
+      response:
+        "Hi! I'm Noor, your Nuura beauty assistant. I can help with products, recommendations, order tracking, shipping, returns, and checkout. What would you like?",
+      suggestions: ['Show all products', ...BASE_SUGGESTIONS].slice(0, 10),
+      fallback: false,
+      source: 'fallback',
+    } satisfies ChatApiPayload)
   }
 
   try {
@@ -902,15 +993,14 @@ export async function POST(request: Request) {
     // Add/remove item from cart via chat (must run BEFORE generic search)
     if (isAddIntent(lowerMsg)) {
       const ok = await tryConnectDB()
-      const explicitSlug = lowerMsg.match(/\/product\/([a-z0-9-]+)/i)?.[1] || ''
-      const needle = (explicitSlug || lowerMsg)
-        .replace(/\b(add|to|cart|please|my|your|a|an|the|one|it|this|that)\b/gi, ' ')
+      const needle = lowerMsg
+        .replace(/\b(add|to|cart|please|a|an|the)\b/gi, ' ')
         .replace(/[^a-z0-9\s-]/g, ' ')
         .trim()
 
       let product: ClientProduct | null = null
       if (ok) {
-        const slugMatch = explicitSlug || needle.match(/[a-z0-9-]{4,}/)?.[0]
+        const slugMatch = needle.match(/[a-z0-9-]{4,}/)?.[0]
         const bySlug = slugMatch ? await Product.findOne({ slug: slugMatch }).lean() : null
         if (bySlug) product = toClientProduct(bySlug)
 
@@ -920,7 +1010,7 @@ export async function POST(request: Request) {
             (w) => new RegExp(w.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i')
           )
           const byText = await Product.findOne({
-            inStock: { $ne: false },
+            inStock: true,
             $or: [{ name: { $in: patterns } }, { slug: { $in: patterns } }, { tags: { $in: patterns } }],
           }).lean()
           if (byText) product = toClientProduct(byText)
@@ -937,26 +1027,6 @@ export async function POST(request: Request) {
       }
 
       if (!product) {
-        // If the user didn't specify what to add, show a few popular options
-        // so they can tap "Add to Cart" directly.
-        if (!needle) {
-          const ok2 = await tryConnectDB()
-          const picks = ok2
-            ? await dbGetBestSellers(6)
-            : MOCK_PRODUCTS.filter((p) => p.isBestSeller).slice(0, 6).map(toClientProduct)
-
-          if (picks.length > 0) {
-            return NextResponse.json({
-              response:
-                "Which product should I add? Tap 'Add to Cart' on any item below, or say 'Add <product name>'.",
-              products: picks,
-              suggestions: [...buildAddSuggestions(picks), 'Show all products', 'Show new arrivals'].slice(0, 6),
-              fallback: !ok2,
-              source: ok2 ? 'db' : 'fallback',
-            } satisfies ChatApiPayload)
-          }
-        }
-
         return NextResponse.json({
           response:
             "Which product should I add? Try: 'Add Rose Quartz Gua Sha' or paste a link like /product/rose-quartz-gua-sha.",
@@ -1001,7 +1071,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         response: `Here are our best sellers (${products.length}).`,
         products,
-        suggestions: [...buildAddSuggestions(products), 'Show new arrivals', 'Self-care under 3000'].slice(0, 8),
+        suggestions: ['Add Rose Quartz Gua Sha', 'Show new arrivals', 'Self-care under 3000'],
         fallback: !ok,
         source: ok ? 'db' : 'fallback',
       } satisfies ChatApiPayload)
@@ -1013,7 +1083,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         response: `New arrivals (${products.length}).`,
         products,
-        suggestions: [...buildAddSuggestions(products), 'Show best sellers', 'Accessories under 3500'].slice(0, 8),
+        suggestions: ['Show best sellers', 'Accessories under 3500'],
         fallback: !ok,
         source: ok ? 'db' : 'fallback',
       } satisfies ChatApiPayload)
@@ -1030,7 +1100,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         response: `Here are some picks for you ✨ ${note}`.trim(),
         products,
-        suggestions: [...buildAddSuggestions(products), 'Show self-care', 'Show accessories'].slice(0, 8),
+        suggestions: ['Add one to cart', 'Show self-care', 'Show accessories'],
         fallback: !ok,
         source: ok ? 'db' : 'fallback',
       } satisfies ChatApiPayload)
@@ -1073,6 +1143,9 @@ export async function POST(request: Request) {
       } satisfies ChatApiPayload)
     }
 
+    const primaryModel = process.env.OPENROUTER_PRIMARY_MODEL || PRIMARY_MODEL
+    const fallbackModel = process.env.OPENROUTER_FALLBACK_MODEL || FALLBACK_MODEL
+
     const catalogSummary = await getLiveCatalogSummary(18)
     const systemPrompt = buildSystemPrompt(catalogSummary)
 
@@ -1085,37 +1158,58 @@ export async function POST(request: Request) {
 
     const apiMessages = [{ role: 'system' as const, content: systemPrompt }, ...messages]
 
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${openRouterKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://nuura-temp.vercel.app',
-        'X-Title': 'Nuura Beauty Assistant',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 400,
-        temperature: 0.7,
-        messages: apiMessages,
-        reasoning: { enabled: false },
-      }),
-    })
+    let result = await callOpenRouter({ apiKey: openRouterKey, model: primaryModel, messages: apiMessages })
 
-    if (!response.ok) {
-      const errText = await response.text()
-      console.error('OpenRouter error:', response.status, errText)
+    // If we are rate-limited, do not retry other models (it usually makes the limit worse).
+    if (!result.ok && result.status === 429) {
+      const waitHint = result.retryAfterSeconds && result.retryAfterSeconds > 0 ? result.retryAfterSeconds : undefined
       return NextResponse.json({
-        response: "I'm having a moment! Ask me about products, shipping, or returns — or WhatsApp @nuura.pk for instant help.",
+        response:
+          `I'm getting rate-limited by my AI provider right now, so I can’t answer freeform questions.${waitHint ? ` Please try again in ~${waitHint}s.` : ' Please try again in a minute.'} In the meantime I can still help you browse products, track an order, or open your cart.`,
+        suggestions: buildSuggestions(msg),
+        rateLimited: true,
+        retryAfterSeconds: waitHint,
+        fallback: true,
+        source: 'fallback',
+      } satisfies ChatApiPayload)
+    }
+
+    if (result.ok) {
+      const cleaned = sanitizeAssistantText(result.rawText) || result.rawText.trim()
+      if (!cleaned) {
+        console.warn('OpenRouter: empty content from primary model; falling back')
+        result = await callOpenRouter({ apiKey: openRouterKey, model: fallbackModel, messages: apiMessages })
+      }
+    } else if (shouldFallbackOpenRouter(result.status, result.errText)) {
+      console.warn('OpenRouter: primary model failed; falling back', result.status)
+      result = await callOpenRouter({ apiKey: openRouterKey, model: fallbackModel, messages: apiMessages })
+    }
+
+    if (!result.ok) {
+      console.error('OpenRouter error:', result.status, result.errText)
+      if (result.status === 429) {
+        const waitSeconds = result.retryAfterSeconds && result.retryAfterSeconds > 0 ? result.retryAfterSeconds : undefined
+        const waitHint = waitSeconds ? ` Please try again in ~${waitSeconds}s.` : ' Please try again in a minute.'
+        return NextResponse.json({
+          response:
+            `I'm getting rate-limited by my AI provider right now, so I can’t answer freeform questions.${waitHint} In the meantime I can still help you browse products, track an order, or open your cart.`,
+          suggestions: buildSuggestions(msg),
+          rateLimited: true,
+          retryAfterSeconds: waitSeconds,
+          fallback: true,
+          source: 'fallback',
+        } satisfies ChatApiPayload)
+      }
+      return NextResponse.json({
+        response:
+          "I'm having trouble reaching my AI brain right now — but I can still help with products, order tracking, shipping, returns, and cart help. What would you like?",
         suggestions: buildSuggestions(msg),
         fallback: true,
         source: 'fallback',
       } satisfies ChatApiPayload)
     }
 
-    const data = await response.json()
-    const aiResponse = data?.choices?.[0]?.message?.content
-    const rawText = aiResponse ? String(aiResponse) : ''
+    const rawText = result.rawText
 
     const cleanedText = sanitizeAssistantText(rawText) || rawText.trim()
     if (!cleanedText) {

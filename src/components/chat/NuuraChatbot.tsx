@@ -97,6 +97,8 @@ type ApiResponse = {
   order?: ApiOrder
   action?: ApiAction
   suggestions?: string[]
+  rateLimited?: boolean
+  retryAfterSeconds?: number
   fallback?: boolean
   source?: 'db' | 'openrouter' | 'fallback'
 }
@@ -139,6 +141,10 @@ export function NuuraChatbot() {
   >([])
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const apiCooldownUntilRef = useRef<number>(0)
+  const apiBackoffMsRef = useRef<number>(0)
+  const lastCooldownNoticeAtRef = useRef<number>(0)
+  const suggestionsCooldownUntilRef = useRef<number>(0)
   const router = useRouter()
 
   const cartStore = useCartStore()
@@ -280,6 +286,7 @@ export function NuuraChatbot() {
   const callSuggestions = useCallback(async (partial: string) => {
     const q = partial.trim()
     if (q.length < 2) return
+    if (Date.now() < suggestionsCooldownUntilRef.current) return
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -292,7 +299,7 @@ export function NuuraChatbot() {
         setSuggestions(data.suggestions)
       }
     } catch {
-      // ignore
+      suggestionsCooldownUntilRef.current = Date.now() + 3000
     }
   }, [])
 
@@ -308,6 +315,21 @@ export function NuuraChatbot() {
   const send = useCallback(async (text?: string) => {
     const msg = (text || input).trim()
     if (!msg || loading) return
+
+    const now = Date.now()
+    if (now < apiCooldownUntilRef.current) {
+      const waitMs = apiCooldownUntilRef.current - now
+      if (now - lastCooldownNoticeAtRef.current > 2500) {
+        lastCooldownNoticeAtRef.current = now
+        addBotMsg({
+          text: `Please wait a moment and try again (about ${Math.max(1, Math.round(waitMs / 1000))}s).`,
+          type: 'replies',
+          replies: ['Show best sellers', 'Show new arrivals', 'View cart'],
+        })
+      }
+      return
+    }
+
     setInput('')
     setShowReplies(false)
 
@@ -326,7 +348,14 @@ export function NuuraChatbot() {
       await new Promise(r => setTimeout(r, 800 + Math.random()*500))
 
       const data = await callChatApi(msg, newHistory)
+      if (data?.rateLimited) {
+        const waitSeconds = typeof data.retryAfterSeconds === 'number' && data.retryAfterSeconds > 0 ? data.retryAfterSeconds : 15
+        apiCooldownUntilRef.current = Date.now() + waitSeconds * 1000
+      }
+
       if (!data?.response) {
+        apiBackoffMsRef.current = Math.min(30000, apiBackoffMsRef.current ? apiBackoffMsRef.current * 2 : 2000)
+        apiCooldownUntilRef.current = Math.max(apiCooldownUntilRef.current, Date.now() + apiBackoffMsRef.current)
         addBotMsg({
           text: "I'm not sure about that right now. Try asking about products, tracking an order, or your cart.",
           type: 'replies',
@@ -408,6 +437,8 @@ export function NuuraChatbot() {
         }, 500)
       }
     } catch {
+      apiBackoffMsRef.current = Math.min(30000, apiBackoffMsRef.current ? apiBackoffMsRef.current * 2 : 2000)
+      apiCooldownUntilRef.current = Math.max(apiCooldownUntilRef.current, Date.now() + apiBackoffMsRef.current)
       addBotMsg({
         text: "Something went wrong. Please try again or WhatsApp @nuura.pk 🌿",
         type: 'replies',
