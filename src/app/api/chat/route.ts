@@ -78,26 +78,40 @@ function safeNumber(n: unknown) {
   return Number.isFinite(num) ? num : 0
 }
 
-function toClientProduct(p: any): ClientProduct {
+function safeDate(value: unknown) {
+  if (value instanceof Date) return value
+  const d = new Date(typeof value === 'string' || typeof value === 'number' ? value : String(value ?? ''))
+  return Number.isFinite(d.valueOf()) ? d : new Date()
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
+}
+
+function toClientProduct(p: unknown): ClientProduct {
+  const r = asRecord(p)
+  const compareRaw = r['comparePrice']
+  const compareNum = compareRaw == null ? undefined : safeNumber(compareRaw)
+
   return {
-    _id: String(p?._id ?? p?.id ?? ''),
-    slug: String(p?.slug ?? ''),
-    name: String(p?.name ?? ''),
-    tagline: String(p?.tagline ?? ''),
-    description: String(p?.description ?? ''),
-    price: safeNumber(p?.price),
-    comparePrice: p?.comparePrice ?? undefined,
-    images: Array.isArray(p?.images) ? p.images.map(String) : [],
-    category: p?.category === 'accessories' ? 'accessories' : 'self-care',
-    tags: Array.isArray(p?.tags) ? p.tags.map(String) : [],
-    inStock: Boolean(p?.inStock ?? true),
-    stockCount: safeNumber(p?.stockCount ?? 0),
-    isFeatured: Boolean(p?.isFeatured ?? false),
-    isNewDrop: Boolean(p?.isNewDrop ?? false),
-    isBestSeller: Boolean(p?.isBestSeller ?? false),
-    weight: typeof p?.weight === 'number' ? p.weight : undefined,
-    createdAt: p?.createdAt ?? new Date().toISOString(),
-    updatedAt: p?.updatedAt ?? new Date().toISOString(),
+    _id: String(r['_id'] ?? r['id'] ?? ''),
+    slug: String(r['slug'] ?? ''),
+    name: String(r['name'] ?? ''),
+    tagline: String(r['tagline'] ?? ''),
+    description: String(r['description'] ?? ''),
+    price: safeNumber(r['price']),
+    comparePrice: compareNum && compareNum > 0 ? compareNum : undefined,
+    images: Array.isArray(r['images']) ? (r['images'] as unknown[]).map(String) : [],
+    category: r['category'] === 'accessories' ? 'accessories' : 'self-care',
+    tags: Array.isArray(r['tags']) ? (r['tags'] as unknown[]).map(String) : [],
+    inStock: Boolean(r['inStock'] ?? true),
+    stockCount: safeNumber(r['stockCount'] ?? 0),
+    isFeatured: Boolean(r['isFeatured'] ?? false),
+    isNewDrop: Boolean(r['isNewDrop'] ?? false),
+    isBestSeller: Boolean(r['isBestSeller'] ?? false),
+    weight: typeof r['weight'] === 'number' ? (r['weight'] as number) : undefined,
+    createdAt: safeDate(r['createdAt']),
+    updatedAt: safeDate(r['updatedAt']),
   }
 }
 
@@ -245,7 +259,7 @@ async function dbSearchProducts(lowerMsg: string) {
   const categoryFilter = extractCategory(lowerMsg)
   const keywords = extractKeywords(lowerMsg)
 
-  const query: any = { inStock: true }
+  const query: Record<string, unknown> = { inStock: { $ne: false } }
   if (categoryFilter) query.category = categoryFilter
   if (priceRange) query.price = { $gte: priceRange.min, $lte: priceRange.max }
 
@@ -259,7 +273,7 @@ async function dbSearchProducts(lowerMsg: string) {
     ]
   }
 
-  const sort: any = {}
+  const sort: Record<string, 1 | -1> = {}
   if (lowerMsg.includes('new') || lowerMsg.includes('latest')) sort.isNewDrop = -1
   if (lowerMsg.includes('best') || lowerMsg.includes('popular') || lowerMsg.includes('trending')) sort.isBestSeller = -1
   if (Object.keys(sort).length === 0) sort.createdAt = -1
@@ -333,7 +347,7 @@ async function dbRecommendFromOrders(context: ChatContext | undefined, limit = 6
       { $limit: limit },
     ])
 
-    const ids = also.map((x: any) => x._id).filter(Boolean)
+    const ids = (also as Array<{ _id?: unknown }>).map((x) => x?._id).filter(Boolean).map(String)
     if (ids.length > 0) {
       const products = await Product.find({ _id: { $in: ids }, inStock: true })
         .select('slug name tagline description price comparePrice images category tags inStock stockCount isFeatured isNewDrop isBestSeller weight createdAt updatedAt')
@@ -418,7 +432,22 @@ function isRecommendationIntent(lowerMsg: string) {
 }
 
 function isAddIntent(lowerMsg: string) {
-  return lowerMsg.startsWith('add ') || lowerMsg.includes(' add ') || lowerMsg.includes('add to cart')
+  // Keep this precise; otherwise suggestions like "Add one to cart" can misfire and
+  // generic sentences containing " add " will be incorrectly treated as cart actions.
+  if (lowerMsg.includes('/product/')) return true
+  if (lowerMsg.includes('add to cart')) return true
+  if (lowerMsg.startsWith('add ')) return true
+  // Allow "... add ... cart ..." phrasing.
+  return lowerMsg.includes('add') && lowerMsg.includes('cart')
+}
+
+function buildAddSuggestions(products: ClientProduct[]) {
+  const names = products
+    .map((p) => String(p.name || '').trim())
+    .filter(Boolean)
+    .slice(0, 3)
+  if (names.length === 0) return []
+  return names.map((n) => `Add ${n}`)
 }
 
 function isRemoveIntent(lowerMsg: string) {
@@ -492,7 +521,7 @@ function etaTextForStatus(orderStatus: string) {
 }
 
 async function dbGetOrder(orderNumber: string): Promise<OrderPayload | null> {
-  const order = (await Order.findOne({ orderNumber }).lean()) as any
+  const order = (await Order.findOne({ orderNumber }).lean()) as Record<string, unknown> | null
   if (!order) return null
 
   return {
@@ -502,14 +531,17 @@ async function dbGetOrder(orderNumber: string): Promise<OrderPayload | null> {
     paymentMethod: String(order.paymentMethod),
     total: safeNumber(order.total),
     items: Array.isArray(order.items)
-      ? order.items.map((i: any) => ({
-          name: String(i.name ?? ''),
-          quantity: safeNumber(i.quantity),
-          price: safeNumber(i.price),
-          image: i.image ? String(i.image) : undefined,
-        }))
+      ? (order.items as unknown[]).map((i) => {
+          const it = asRecord(i)
+          return {
+            name: String(it['name'] ?? ''),
+            quantity: safeNumber(it['quantity']),
+            price: safeNumber(it['price']),
+            image: it['image'] ? String(it['image']) : undefined,
+          }
+        })
       : [],
-    createdAt: order.createdAt ? new Date(order.createdAt).toISOString() : new Date().toISOString(),
+    createdAt: safeDate(order.createdAt).toISOString(),
     timeline: buildOrderTimeline(String(order.orderStatus)),
     etaText: etaTextForStatus(String(order.orderStatus)),
   }
@@ -639,12 +671,18 @@ async function getLiveCatalogSummary(maxItems = 20) {
       .lean()
 
     const lines = products
-      .map((p: any) => {
-        const disc = p.comparePrice ? ` (was PKR ${p.comparePrice.toLocaleString()})` : ''
-        const badges = [p.isNewDrop ? 'New Drop' : '', p.isBestSeller ? 'Best Seller' : '']
+      .map((p) => {
+        const r = asRecord(p)
+        const compare = r['comparePrice'] == null ? 0 : safeNumber(r['comparePrice'])
+        const disc = compare > 0 ? ` (was PKR ${compare.toLocaleString()})` : ''
+        const badges = [r['isNewDrop'] ? 'New Drop' : '', r['isBestSeller'] ? 'Best Seller' : '']
           .filter(Boolean)
           .join(', ')
-        return `- ${p.name}: PKR ${p.price.toLocaleString()}${disc} | ${p.category} | /product/${p.slug}${badges ? ` | ${badges}` : ''}`
+        const name = String(r['name'] ?? '')
+        const slug = String(r['slug'] ?? '')
+        const price = safeNumber(r['price'])
+        const category = String(r['category'] ?? '')
+        return `- ${name}: PKR ${price.toLocaleString()}${disc} | ${category} | /product/${slug}${badges ? ` | ${badges}` : ''}`
       })
       .join('\n')
 
@@ -864,14 +902,15 @@ export async function POST(request: Request) {
     // Add/remove item from cart via chat (must run BEFORE generic search)
     if (isAddIntent(lowerMsg)) {
       const ok = await tryConnectDB()
-      const needle = lowerMsg
-        .replace(/\b(add|to|cart|please|a|an|the)\b/gi, ' ')
+      const explicitSlug = lowerMsg.match(/\/product\/([a-z0-9-]+)/i)?.[1] || ''
+      const needle = (explicitSlug || lowerMsg)
+        .replace(/\b(add|to|cart|please|my|your|a|an|the|one|it|this|that)\b/gi, ' ')
         .replace(/[^a-z0-9\s-]/g, ' ')
         .trim()
 
       let product: ClientProduct | null = null
       if (ok) {
-        const slugMatch = needle.match(/[a-z0-9-]{4,}/)?.[0]
+        const slugMatch = explicitSlug || needle.match(/[a-z0-9-]{4,}/)?.[0]
         const bySlug = slugMatch ? await Product.findOne({ slug: slugMatch }).lean() : null
         if (bySlug) product = toClientProduct(bySlug)
 
@@ -881,7 +920,7 @@ export async function POST(request: Request) {
             (w) => new RegExp(w.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i')
           )
           const byText = await Product.findOne({
-            inStock: true,
+            inStock: { $ne: false },
             $or: [{ name: { $in: patterns } }, { slug: { $in: patterns } }, { tags: { $in: patterns } }],
           }).lean()
           if (byText) product = toClientProduct(byText)
@@ -898,6 +937,26 @@ export async function POST(request: Request) {
       }
 
       if (!product) {
+        // If the user didn't specify what to add, show a few popular options
+        // so they can tap "Add to Cart" directly.
+        if (!needle) {
+          const ok2 = await tryConnectDB()
+          const picks = ok2
+            ? await dbGetBestSellers(6)
+            : MOCK_PRODUCTS.filter((p) => p.isBestSeller).slice(0, 6).map(toClientProduct)
+
+          if (picks.length > 0) {
+            return NextResponse.json({
+              response:
+                "Which product should I add? Tap 'Add to Cart' on any item below, or say 'Add <product name>'.",
+              products: picks,
+              suggestions: [...buildAddSuggestions(picks), 'Show all products', 'Show new arrivals'].slice(0, 6),
+              fallback: !ok2,
+              source: ok2 ? 'db' : 'fallback',
+            } satisfies ChatApiPayload)
+          }
+        }
+
         return NextResponse.json({
           response:
             "Which product should I add? Try: 'Add Rose Quartz Gua Sha' or paste a link like /product/rose-quartz-gua-sha.",
@@ -942,7 +1001,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         response: `Here are our best sellers (${products.length}).`,
         products,
-        suggestions: ['Add Rose Quartz Gua Sha', 'Show new arrivals', 'Self-care under 3000'],
+        suggestions: [...buildAddSuggestions(products), 'Show new arrivals', 'Self-care under 3000'].slice(0, 8),
         fallback: !ok,
         source: ok ? 'db' : 'fallback',
       } satisfies ChatApiPayload)
@@ -954,7 +1013,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         response: `New arrivals (${products.length}).`,
         products,
-        suggestions: ['Show best sellers', 'Accessories under 3500'],
+        suggestions: [...buildAddSuggestions(products), 'Show best sellers', 'Accessories under 3500'].slice(0, 8),
         fallback: !ok,
         source: ok ? 'db' : 'fallback',
       } satisfies ChatApiPayload)
@@ -971,7 +1030,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         response: `Here are some picks for you ✨ ${note}`.trim(),
         products,
-        suggestions: ['Add one to cart', 'Show self-care', 'Show accessories'],
+        suggestions: [...buildAddSuggestions(products), 'Show self-care', 'Show accessories'].slice(0, 8),
         fallback: !ok,
         source: ok ? 'db' : 'fallback',
       } satisfies ChatApiPayload)
