@@ -162,6 +162,7 @@ function extractKeywords(lowerMsg: string) {
       (k) =>
         ![
           'all',
+          'both',
           'everything',
           'browse',
           'show',
@@ -245,7 +246,8 @@ async function dbSearchProducts(lowerMsg: string) {
   const categoryFilter = extractCategory(lowerMsg)
   const keywords = extractKeywords(lowerMsg)
 
-  const query: any = { inStock: true }
+  // Treat missing `inStock` as in-stock (older/manual inserts).
+  const query: any = { inStock: { $ne: false } }
   if (categoryFilter) query.category = categoryFilter
   if (priceRange) query.price = { $gte: priceRange.min, $lte: priceRange.max }
 
@@ -300,7 +302,7 @@ function fallbackSearchProducts(lowerMsg: string) {
 }
 
 async function dbGetBestSellers(limit = 6) {
-  const products = await Product.find({ inStock: true, isBestSeller: true })
+  const products = await Product.find({ inStock: { $ne: false }, isBestSeller: true })
     .select('slug name tagline description price comparePrice images category tags inStock stockCount isFeatured isNewDrop isBestSeller weight createdAt updatedAt')
     .sort({ updatedAt: -1 })
     .limit(limit)
@@ -309,7 +311,7 @@ async function dbGetBestSellers(limit = 6) {
 }
 
 async function dbGetNewArrivals(limit = 6) {
-  const products = await Product.find({ inStock: true, isNewDrop: true })
+  const products = await Product.find({ inStock: { $ne: false }, isNewDrop: true })
     .select('slug name tagline description price comparePrice images category tags inStock stockCount isFeatured isNewDrop isBestSeller weight createdAt updatedAt')
     .sort({ createdAt: -1 })
     .limit(limit)
@@ -335,7 +337,7 @@ async function dbRecommendFromOrders(context: ChatContext | undefined, limit = 6
 
     const ids = also.map((x: any) => x._id).filter(Boolean)
     if (ids.length > 0) {
-      const products = await Product.find({ _id: { $in: ids }, inStock: true })
+      const products = await Product.find({ _id: { $in: ids }, inStock: { $ne: false } })
         .select('slug name tagline description price comparePrice images category tags inStock stockCount isFeatured isNewDrop isBestSeller weight createdAt updatedAt')
         .limit(limit)
         .lean()
@@ -351,7 +353,7 @@ async function dbRecommendFromOrders(context: ChatContext | undefined, limit = 6
       .lean()
     if (seed) {
       const products = await Product.find({
-        inStock: true,
+        inStock: { $ne: false },
         $or: [{ category: seed.category }, { tags: { $in: seed.tags ?? [] } }],
       })
         .select('slug name tagline description price comparePrice images category tags inStock stockCount isFeatured isNewDrop isBestSeller weight createdAt updatedAt')
@@ -378,12 +380,15 @@ function isSearchIntent(lowerMsg: string) {
     lowerMsg.includes('browse') ||
     lowerMsg.includes('catalog')
 
+  const hasProductWord = /\b(product|products|item|items|options|collection)\b/i.test(lowerMsg)
+  const hasBrowseVerb = /\b(show|list|browse|see|display)\b/i.test(lowerMsg) || strongSearchVerb
   const explicitProductBrowse =
-    /\b(product|products|item|items|options|collection)\b/i.test(lowerMsg) ||
     lowerMsg.includes('/product/') ||
     lowerMsg.includes('product page') ||
     lowerMsg.includes('link me') ||
-    lowerMsg.includes('link to')
+    lowerMsg.includes('link to') ||
+    lowerMsg.includes('all products') ||
+    (hasProductWord && hasBrowseVerb)
 
   const shoppingSignal =
     /\b(buy|order|shop|shopping|price|cost|available|in stock|want|need)\b/i.test(lowerMsg) ||
@@ -625,7 +630,7 @@ async function getLiveCatalogSummary(maxItems = 20) {
     const ok = await tryConnectDB(3500)
     if (!ok) throw new Error('DB_UNAVAILABLE')
 
-    const products = await Product.find({ inStock: true })
+    const products = await Product.find({ inStock: { $ne: false } })
       .select('name slug price comparePrice category isNewDrop isBestSeller')
       .sort({ isBestSeller: -1, isNewDrop: -1, updatedAt: -1 })
       .limit(maxItems)
@@ -666,7 +671,7 @@ async function productsBySlugs(slugs: string[]): Promise<ClientProduct[]> {
     return MOCK_PRODUCTS.filter((p) => slugs.includes(p.slug)).map(toClientProduct)
   }
 
-  const products = await Product.find({ slug: { $in: slugs }, inStock: true })
+  const products = await Product.find({ slug: { $in: slugs }, inStock: { $ne: false } })
     .select('slug name tagline description price comparePrice images category tags inStock stockCount isFeatured isNewDrop isBestSeller weight createdAt updatedAt')
     .lean()
   return products.map(toClientProduct)
@@ -701,7 +706,7 @@ export async function POST(request: Request) {
         .map((k) => new RegExp(k.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i'))
 
       const matches = (await Product.find({
-        inStock: true,
+        inStock: { $ne: false },
         $or: [{ name: { $in: patterns } }, { slug: { $in: patterns } }, { tags: { $in: patterns } }],
       })
         .select('name')
@@ -874,7 +879,7 @@ export async function POST(request: Request) {
             (w) => new RegExp(w.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i')
           )
           const byText = await Product.findOne({
-            inStock: true,
+            inStock: { $ne: false },
             $or: [{ name: { $in: patterns } }, { slug: { $in: patterns } }, { tags: { $in: patterns } }],
           }).lean()
           if (byText) product = toClientProduct(byText)
@@ -993,6 +998,30 @@ export async function POST(request: Request) {
         fallback: !ok,
         source: ok ? 'db' : 'fallback',
       } satisfies ChatApiPayload)
+    }
+
+    // DB-first: user typed a product name without "show/find/search" (e.g., "night cream").
+    {
+      const keywords = extractKeywords(lowerMsg)
+      const looksInformational =
+        /\b(how to|how do i|how can i|tips|routine|guide|benefits|what is|difference|scar|acne|wrinkl)\b/i.test(lowerMsg)
+      const looksTransactional = /\b(track|order|checkout|shipping|delivery|return|refund|payment|cart)\b/i.test(lowerMsg)
+
+      if (!looksInformational && !looksTransactional && keywords.length > 0 && keywords.length <= 6 && lowerMsg.length <= 70) {
+        const ok = await tryConnectDB(1200)
+        if (ok) {
+          const products = await dbSearchProducts(lowerMsg)
+          if (products.length > 0) {
+            return NextResponse.json({
+              response: `I found ${products.length} product${products.length === 1 ? '' : 's'} for “${msg.trim()}”.`,
+              products,
+              suggestions: ['Show best sellers', 'Show new arrivals', 'Add to cart'],
+              fallback: false,
+              source: 'db',
+            } satisfies ChatApiPayload)
+          }
+        }
+      }
     }
 
     // Freeform: OpenRouter (with live catalog context)
