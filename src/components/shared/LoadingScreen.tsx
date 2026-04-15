@@ -9,10 +9,23 @@ export function LoadingScreen() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    if (sessionStorage.getItem('nuura-v2-loaded')) { setVisible(false); setDone(true); return }
+    try {
+      if (sessionStorage.getItem('nuura-v2-loaded')) {
+        setVisible(false)
+        setDone(true)
+        return
+      }
+    } catch {
+      // Some mobile/private browsing modes can throw on sessionStorage access.
+    }
     const t = setTimeout(() => {
       setVisible(false)
-      sessionStorage.setItem('nuura-v2-loaded', 'true')
+      setDone(true)
+      try {
+        sessionStorage.setItem('nuura-v2-loaded', 'true')
+      } catch {
+        // ignore
+      }
     }, 2400)
     return () => clearTimeout(t)
   }, [])
