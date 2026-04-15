@@ -23,18 +23,54 @@ const BG_BY_SLUG: Record<string, string> = {
   'facial-steamer': '#ECF5F5',
 }
 
-const PRODUCTS = MOCK_PRODUCTS.map((p) => ({
-  id: String(p._id),
-  name: p.name,
-  tagline: p.tagline,
-  price: formatPKR(p.price),
-  comparePrice: typeof p.comparePrice === 'number' ? formatPKR(p.comparePrice) : null,
-  category: p.category === 'self-care' ? 'Self-Care' : 'Accessories',
-  slug: p.slug,
-  isNew: Boolean(p.isNewDrop),
-  bg: BG_BY_SLUG[p.slug] ?? '#F0EBE3',
-  img: p.images?.[0] || '/placeholder.jpg',
-}))
+type ApiProduct = {
+  _id?: unknown
+  id?: unknown
+  name?: unknown
+  tagline?: unknown
+  price?: unknown
+  comparePrice?: unknown
+  category?: unknown
+  slug?: unknown
+  isNewDrop?: unknown
+  images?: unknown
+}
+
+type HomeProduct = {
+  id: string
+  name: string
+  tagline: string
+  price: string
+  comparePrice: string | null
+  category: string
+  slug: string
+  isNew: boolean
+  bg: string
+  img: string
+}
+
+function toHomeProduct(p: ApiProduct): HomeProduct {
+  const slug = String(p.slug ?? '')
+  const priceNum = typeof p.price === 'number' ? p.price : Number(p.price ?? 0)
+  const compareNum = typeof p.comparePrice === 'number' ? p.comparePrice : Number(p.comparePrice ?? NaN)
+  const images = Array.isArray(p.images) ? (p.images as unknown[]).map(String) : []
+  const categoryRaw = String(p.category ?? '')
+
+  return {
+    id: String(p._id ?? p.id ?? slug),
+    name: String(p.name ?? ''),
+    tagline: String(p.tagline ?? ''),
+    price: formatPKR(Number.isFinite(priceNum) ? priceNum : 0),
+    comparePrice: Number.isFinite(compareNum) ? formatPKR(compareNum) : null,
+    category: categoryRaw === 'self-care' ? 'Self-Care' : 'Accessories',
+    slug,
+    isNew: Boolean(p.isNewDrop),
+    bg: BG_BY_SLUG[slug] ?? '#F0EBE3',
+    img: images[0] || '/placeholder.jpg',
+  }
+}
+
+const FALLBACK_PRODUCTS: HomeProduct[] = MOCK_PRODUCTS.map((p) => toHomeProduct(p as unknown as ApiProduct))
 
 const REVIEWS = [
   { name:'Aisha K.', city:'Lahore', rating:5, text:'The gua sha changed my entire morning routine. My skin looks lifted and I get compliments every day. Worth every rupee and more.', product:'Rose Quartz Gua Sha', initials:'AK' },
@@ -169,7 +205,7 @@ function StatsBar() {
 }
 
 // ── PRODUCT CARD ──────────────────────────────────────────────────
-function PCard({ p, i }: { p:typeof PRODUCTS[0]; i:number }) {
+function PCard({ p, i }: { p: HomeProduct; i: number }) {
   const [hov, setHov] = useState(false)
   return (
     <Link href={`/product/${p.slug}`} data-cursor="hover" style={{ textDecoration:'none', display:'block' }}>
@@ -195,12 +231,12 @@ function PCard({ p, i }: { p:typeof PRODUCTS[0]; i:number }) {
 }
 
 // ── DESKTOP HORIZONTAL SCROLL WITH ARROWS ─────────────────────────
-function DesktopProducts() {
+function DesktopProducts({ products }: { products: HomeProduct[] }) {
   const [current, setCurrent] = useState(0)
   const itemsPerView = 4
   const pages = []
-  for (let i = 0; i < PRODUCTS.length; i += itemsPerView) {
-    pages.push(PRODUCTS.slice(i, i + itemsPerView))
+  for (let i = 0; i < products.length; i += itemsPerView) {
+    pages.push(products.slice(i, i + itemsPerView))
   }
   const totalPages = pages.length
   const canGoNext = current < totalPages - 1
@@ -264,11 +300,11 @@ function DesktopProducts() {
 }
 
 // ── MOBILE CAROUSEL WITH ARROWS ───────────────────────────────────
-function MobileProducts() {
+function MobileProducts({ products }: { products: HomeProduct[] }) {
   const [active, setActive] = useState(0)
   const startX = useRef(0)
   const prev = () => setActive(p => Math.max(p-1, 0))
-  const next = () => setActive(p => Math.min(p+1, PRODUCTS.length-1))
+  const next = () => setActive(p => Math.min(p+1, products.length-1))
 
   return (
     <div style={{ background:C.forest, paddingTop:'3rem', paddingBottom:'2.5rem' }}>
@@ -286,8 +322,8 @@ function MobileProducts() {
             style={{ width:'44px', height:'44px', border:`1px solid ${active===0?'rgba(245,240,230,0.08)':'rgba(245,240,230,0.3)'}`, background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:active===0?'not-allowed':'pointer', opacity:active===0?0.3:1, transition:'all 200ms' }}>
             <ChevronLeft size={18} color={C.cream} strokeWidth={1.5} />
           </button>
-          <button onClick={next} disabled={active===PRODUCTS.length-1}
-            style={{ width:'44px', height:'44px', border:`1px solid ${active===PRODUCTS.length-1?'rgba(245,240,230,0.08)':'rgba(245,240,230,0.3)'}`, background:active===PRODUCTS.length-1?'transparent':'rgba(212,168,83,0.1)', display:'flex', alignItems:'center', justifyContent:'center', cursor:active===PRODUCTS.length-1?'not-allowed':'pointer', opacity:active===PRODUCTS.length-1?0.3:1, transition:'all 200ms' }}>
+          <button onClick={next} disabled={active===products.length-1}
+            style={{ width:'44px', height:'44px', border:`1px solid ${active===products.length-1?'rgba(245,240,230,0.08)':'rgba(245,240,230,0.3)'}`, background:active===products.length-1?'transparent':'rgba(212,168,83,0.1)', display:'flex', alignItems:'center', justifyContent:'center', cursor:active===products.length-1?'not-allowed':'pointer', opacity:active===products.length-1?0.3:1, transition:'all 200ms' }}>
             <ChevronRight size={18} color={C.cream} strokeWidth={1.5} />
           </button>
         </div>
@@ -297,14 +333,14 @@ function MobileProducts() {
         onTouchStart={e=>{ startX.current=e.touches[0].clientX }}
         onTouchEnd={e=>{ const d=startX.current-e.changedTouches[0].clientX; if(Math.abs(d)>40){ if(d>0)next(); else prev() } }}>
         <motion.div animate={{ x:`calc(-${active*58}vw - ${active*1}rem)` }} transition={{ duration:0.5, ease:[0.25,0.1,0.25,1] }} style={{ display:'flex', gap:'1rem' }}>
-          {PRODUCTS.map((p,i) => (
+          {products.map((p,i) => (
             <div key={p.id} style={{ width:'58vw', flexShrink:0 }}><PCard p={p} i={i} /></div>
           ))}
         </motion.div>
       </div>
 
       <div style={{ display:'flex', justifyContent:'center', gap:'8px', marginTop:'1.5rem' }}>
-        {PRODUCTS.map((_,i) => (
+        {products.map((_,i) => (
           <button key={i} onClick={()=>setActive(i)} style={{ width:i===active?'28px':'6px', height:'6px', borderRadius:'3px', background:i===active?C.gold:C.border, border:'none', padding:0, cursor:'pointer', transition:'all 300ms' }} />
         ))}
       </div>
@@ -318,7 +354,41 @@ function MobileProducts() {
 
 function Products() {
   const isMobile = useIsMobile()
-  return isMobile ? <MobileProducts /> : <DesktopProducts />
+  const [products, setProducts] = useState<HomeProduct[]>(FALLBACK_PRODUCTS)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function load() {
+      try {
+        const tryFetch = async (url: string) => {
+          const res = await fetch(url, { cache: 'no-store' })
+          if (!res.ok) return []
+          const data = (await res.json()) as { products?: ApiProduct[] }
+          return Array.isArray(data?.products) ? data.products : []
+        }
+
+        let list = await tryFetch('/api/products?featured=true&limit=12')
+        if (list.length === 0) list = await tryFetch('/api/products?newDrop=true&limit=12')
+        if (list.length === 0) list = await tryFetch('/api/products?limit=12')
+
+        const mapped = list
+          .map(toHomeProduct)
+          .filter((p) => Boolean(p.slug) && Boolean(p.name))
+
+        if (!cancelled && mapped.length > 0) setProducts(mapped)
+      } catch {
+        // keep fallback products
+      }
+    }
+
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  return isMobile ? <MobileProducts products={products} /> : <DesktopProducts products={products} />
 }
 
 // ── BRAND STORY ───────────────────────────────────────────────────

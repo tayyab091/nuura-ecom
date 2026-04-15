@@ -14,27 +14,31 @@ export async function GET(request: Request) {
   try {
     await connectDB()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query: any = ProductModel.find()
+    let query: any = ProductModel.find({ inStock: true })
     if (category) query = query.where('category').equals(category)
     if (featured) query = query.where('isFeatured').equals(true)
     if (newDrop) query = query.where('isNewDrop').equals(true)
-    const products = await query.limit(limit).lean()
-    
-    // If DB returns data, use it; otherwise fall back to mock
-    if (products && products.length > 0) {
-      return NextResponse.json({ products }, {
+    const products = await query
+      .sort({ isBestSeller: -1, isNewDrop: -1, updatedAt: -1 })
+      .limit(limit)
+      .lean()
+
+    // If DB is reachable, return DB results even if empty (no silent mock fallback).
+    return NextResponse.json(
+      { products },
+      {
         headers: {
           'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
         },
-      })
-    }
-    throw new Error('No products in database, using mock data')
+      }
+    )
   } catch {
     // DB not connected or no products — return mock data
     let filtered = MOCK_DATA as typeof MOCK_DATA
     if (category) filtered = filtered.filter((p) => p.category === category)
     if (featured) filtered = filtered.filter((p) => p.isFeatured)
     if (newDrop) filtered = filtered.filter((p) => p.isNewDrop)
+    filtered = filtered.filter((p) => p.inStock !== false)
     return NextResponse.json({ products: filtered.slice(0, limit) }, {
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
