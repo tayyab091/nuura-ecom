@@ -600,7 +600,7 @@ function sanitizeAssistantText(raw: string): string {
   {
     const lines = t.split('\n')
     const metaRe =
-      /^(?:(?:the user|user)\s+(?:is|wants|asked|asks)\b|(?:analysis|reasoning|thoughts?|plan)\s*:|here(?:'s| is)\s+(?:my\s+)?(?:analysis|reasoning)\b)/i
+      /^(?:ok(?:ay)?[,\.\s-]*\s*)?(?:(?:the user|user)\s+(?:is|wants|asked|asks)\b|(?:analysis|reasoning|thoughts?|plan)\s*:|here(?:'s| is)\s+(?:my\s+)?(?:analysis|reasoning)\b|let me\s+(?:check|think)\b|first,\s)/i
 
     let metaIdx = -1
     let seenNonEmpty = 0
@@ -640,9 +640,9 @@ function sanitizeAssistantText(raw: string): string {
   if (firstIdx >= 0) {
     const firstLine = lines[firstIdx].trim()
     const looksLikeMeta =
-      /^(the user|user)\s+(is|wants|asked|asks)\b/i.test(firstLine) ||
-      /^(analysis|reasoning|thoughts?)\s*:/i.test(firstLine) ||
-      /^(plan|approach)\s*:/i.test(firstLine)
+      /^(?:ok(?:ay)?[,\.\s-]*\s*)?(?:(?:the user|user)\s+(?:is|wants|asked|asks)\b|(?:analysis|reasoning|thoughts?)\s*:|(?:plan|approach)\s*:|let me\s+(?:check|think)\b|first,\s)/i.test(
+        firstLine
+      )
 
     if (looksLikeMeta) {
       let cut = firstIdx
@@ -1227,6 +1227,47 @@ export async function POST(request: Request) {
     // Freeform: OpenRouter (with live catalog context)
     const openRouterKey = process.env.OPENROUTER_API_KEY
     if (!openRouterKey) {
+      // If AI is not configured, still show a few relevant product tiles for beauty/skincare questions.
+      const looksLikeBeautyAdvice =
+        /\b(skin|skincare|sunscreen|spf|sun|face|facial|acne|pimple|breakout|dry|hydration|glow|puffiness|wrinkl|dark\s*circles?|under\s*eye|undereye|massage|gua\s*sha|roller|night\s*cream|cream|serum|moisturiz(?:er|ing)?)\b/i.test(
+          lowerMsg
+        )
+
+      if (looksLikeBeautyAdvice) {
+        const hintedCategory: 'self-care' | 'accessories' =
+          /\b(accessor(?:y|ies)|bag|clutch|purse|crossbody)\b/i.test(lowerMsg) ? 'accessories' : 'self-care'
+
+        let products: ClientProduct[] = []
+        const ok = await tryConnectDB(1200)
+        if (ok) {
+          const related = await Product.find({ inStock: true, category: hintedCategory })
+            .select('slug name tagline description price comparePrice images category tags inStock stockCount isFeatured isNewDrop isBestSeller weight createdAt updatedAt')
+            .sort({ isBestSeller: -1, isNewDrop: -1, updatedAt: -1 })
+            .limit(4)
+            .lean()
+          products = related.map(toClientProduct)
+        } else {
+          products = MOCK_PRODUCTS.slice()
+            .filter((p) => p.inStock && p.category === hintedCategory)
+            .sort(
+              (a, b) =>
+                Number(Boolean((b as any).isBestSeller)) - Number(Boolean((a as any).isBestSeller)) ||
+                Number(Boolean((b as any).isNewDrop)) - Number(Boolean((a as any).isNewDrop))
+            )
+            .slice(0, 4)
+            .map(toClientProduct)
+        }
+
+        return NextResponse.json({
+          response:
+            'We don’t currently have sunscreen in our catalog, but here’s the quick gist: sunscreen protects skin from UV damage (sunburn, dark spots, premature aging) and helps lower skin-cancer risk. Apply generously 15–20 minutes before sun and reapply every 2 hours (or after sweating/swimming).',
+          products: products.length > 0 ? products : undefined,
+          suggestions: ['Show best sellers', 'Show self-care', 'Show all products'],
+          fallback: true,
+          source: 'fallback',
+        } satisfies ChatApiPayload)
+      }
+
       return NextResponse.json({
         response:
           "I'm Noor, your Nuura assistant! I can help with products, order tracking, shipping, returns, and cart help. What would you like?",
@@ -1321,7 +1362,7 @@ export async function POST(request: Request) {
     // still show a few relevant product cards.
     if (products.length === 0) {
       const looksLikeBeautyAdvice =
-        /\b(skin|skincare|sunscreen|spf|sun|face|facial|acne|pimple|breakout|dry|hydration|glow|puffiness|wrinkl|dark\s*circles?|under\s*eye|undereye|massage|gua\s*sha|roller)\b/i.test(
+        /\b(skin|skincare|sunscreen|spf|sun|face|facial|acne|pimple|breakout|dry|hydration|glow|puffiness|wrinkl|dark\s*circles?|under\s*eye|undereye|massage|gua\s*sha|roller|night\s*cream|cream|serum|moisturiz(?:er|ing)?)\b/i.test(
           lowerMsg
         )
 

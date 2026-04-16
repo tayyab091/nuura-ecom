@@ -659,7 +659,7 @@ export function NuuraChatbot() {
                     )}
                   </div>
 
-                  {msg.type==='products' && msg.products && (
+                  {msg.products && msg.products.length > 0 && (
                     <div style={{ marginLeft:'36px', marginTop:'8px' }}>
                       {msg.products.map(p => <ChatCard key={p._id || p.slug} p={p} />)}
                     </div>
