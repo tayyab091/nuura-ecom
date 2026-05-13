@@ -77,10 +77,13 @@ export async function GET(_request: Request, { params }: RouteParams) {
   const slug = decodeURIComponent(rawSlug).trim().toLowerCase()
 
   try {
-    await connectDB({ maxWaitMS: 2000 })
+    const connectWaitMS = process.env.NODE_ENV === 'production' ? 2000 : 8000
+    const queryMaxTimeMS = process.env.NODE_ENV === 'production' ? 2000 : 8000
+    const queryTimeoutMS = process.env.NODE_ENV === 'production' ? 2500 : 12000
+    await connectDB({ maxWaitMS: connectWaitMS })
     const product = await withTimeout(
-      Product.findOne({ slug }).maxTimeMS(2000).lean(),
-      2500
+      Product.findOne({ slug }).maxTimeMS(queryMaxTimeMS).lean(),
+      queryTimeoutMS
     )
     if (product) {
       return NextResponse.json({ product }, {

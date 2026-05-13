@@ -78,7 +78,10 @@ export async function GET(request: Request) {
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 12
 
   try {
-    await connectDB({ maxWaitMS: 2000 })
+    const connectWaitMS = process.env.NODE_ENV === 'production' ? 2000 : 8000
+    const queryMaxTimeMS = process.env.NODE_ENV === 'production' ? 2000 : 8000
+    const queryTimeoutMS = process.env.NODE_ENV === 'production' ? 2500 : 12000
+    await connectDB({ maxWaitMS: connectWaitMS })
     // Treat missing `inStock` as in-stock (older/manual inserts).
     let query = ProductModel.find({ inStock: { $ne: false } })
     if (category) query = query.where('category').equals(category)
@@ -95,11 +98,11 @@ export async function GET(request: Request) {
 
     const products = await withTimeout(
       query
-        .maxTimeMS(2000)
+        .maxTimeMS(queryMaxTimeMS)
         .sort(sort)
         .limit(limit)
         .lean(),
-      2500
+      queryTimeoutMS
     )
 
     // If DB is reachable, return DB results even if empty (no silent mock fallback).
