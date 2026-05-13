@@ -4,6 +4,17 @@ export interface Product {
   name: string
   tagline: string
   description: string
+  seo?: {
+    title?: string
+    description?: string
+    keywords?: string[]
+    ogTitle?: string
+    ogDescription?: string
+    ogImage?: string
+    canonicalUrl?: string
+    noIndex?: boolean
+    noFollow?: boolean
+  }
   price: number
   comparePrice?: number
   images: string[]

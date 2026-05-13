@@ -18,9 +18,21 @@ const TimelineStep = ({ icon, label, active }: TimelineStepProps) => (
 )
 
 const InfoBox = ({ isCOD }: InfoBoxProps) => {
+  const [whatsappNumber, setWhatsappNumber] = useState<string>(WHATSAPP_NUMBER)
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then((r) => r.json())
+      .then((d) => {
+        const n = d?.settings?.whatsappNumber
+        if (typeof n === 'string' && n.trim()) setWhatsappNumber(n.trim())
+      })
+      .catch(() => {})
+  }, [])
+
   const waLink =
     'https://wa.me/' +
-    WHATSAPP_NUMBER +
+    whatsappNumber +
     '?text=Hi!%20I%20just%20placed%20an%20order%20and%20am%20sending%20my%20payment%20screenshot.'
 
   return (

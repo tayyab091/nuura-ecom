@@ -5,6 +5,17 @@ export interface IProduct extends Document {
   name: string
   tagline: string
   description: string
+  seo?: {
+    title?: string
+    description?: string
+    keywords?: string[]
+    ogTitle?: string
+    ogDescription?: string
+    ogImage?: string
+    canonicalUrl?: string
+    noIndex?: boolean
+    noFollow?: boolean
+  }
   price: number
   comparePrice?: number
   images: string[]
@@ -26,6 +37,17 @@ const ProductSchema = new Schema<IProduct>(
     name: { type: String, required: true, trim: true },
     tagline: { type: String, required: true },
     description: { type: String, required: true },
+    seo: {
+      title: { type: String, trim: true },
+      description: { type: String, trim: true },
+      keywords: [{ type: String, trim: true }],
+      ogTitle: { type: String, trim: true },
+      ogDescription: { type: String, trim: true },
+      ogImage: { type: String, trim: true },
+      canonicalUrl: { type: String, trim: true },
+      noIndex: { type: Boolean, default: false },
+      noFollow: { type: Boolean, default: false },
+    },
     price: { type: Number, required: true, min: 0 },
     comparePrice: { type: Number, min: 0 },
     images: [{ type: String }],

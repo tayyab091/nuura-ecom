@@ -11,6 +11,17 @@ interface Product {
   name: string
   tagline: string
   description: string
+  seo?: {
+    title?: string
+    description?: string
+    keywords?: string[]
+    ogTitle?: string
+    ogDescription?: string
+    ogImage?: string
+    canonicalUrl?: string
+    noIndex?: boolean
+    noFollow?: boolean
+  }
   price: number
   comparePrice?: number
   images: string[]
@@ -33,6 +44,15 @@ const BLANK_FORM = {
   stockCount: '',
   tags: '',
   images: '',
+  seoTitle: '',
+  seoDescription: '',
+  seoKeywords: '',
+  ogTitle: '',
+  ogDescription: '',
+  ogImage: '',
+  canonicalUrl: '',
+  noIndex: false,
+  noFollow: false,
   isFeatured: false,
   isNewDrop: false,
   isBestSeller: false,
@@ -40,6 +60,35 @@ const BLANK_FORM = {
 }
 
 type FormState = typeof BLANK_FORM
+
+type SeoPayload = {
+  title?: string
+  description?: string
+  keywords?: string[]
+  ogTitle?: string
+  ogDescription?: string
+  ogImage?: string
+  canonicalUrl?: string
+  noIndex?: boolean
+  noFollow?: boolean
+}
+
+type ProductPayload = {
+  name: string
+  tagline: string
+  description: string
+  price: number
+  comparePrice?: number
+  category: string
+  stockCount: number
+  tags: string[]
+  images: string[]
+  seo?: SeoPayload | null
+  isFeatured: boolean
+  isNewDrop: boolean
+  isBestSeller: boolean
+  inStock: boolean
+}
 
 function ProductModal({
   product,
@@ -63,6 +112,15 @@ function ProductModal({
           stockCount: String(product.stockCount),
           tags: product.tags.join(', '),
           images: product.images.join('\n'),
+          seoTitle: product.seo?.title ?? '',
+          seoDescription: product.seo?.description ?? '',
+          seoKeywords: (product.seo?.keywords ?? []).join(', '),
+          ogTitle: product.seo?.ogTitle ?? '',
+          ogDescription: product.seo?.ogDescription ?? '',
+          ogImage: product.seo?.ogImage ?? '',
+          canonicalUrl: product.seo?.canonicalUrl ?? '',
+          noIndex: product.seo?.noIndex ?? false,
+          noFollow: product.seo?.noFollow ?? false,
           isFeatured: product.isFeatured,
           isNewDrop: product.isNewDrop,
           isBestSeller: product.isBestSeller,
@@ -82,7 +140,7 @@ function ProductModal({
     setError('')
     setSaving(true)
     try {
-      const body = {
+      const body: ProductPayload = {
         name: form.name,
         tagline: form.tagline,
         description: form.description,
@@ -98,10 +156,45 @@ function ProductModal({
           .split('\n')
           .map((u) => u.trim())
           .filter(Boolean),
+        seo: {
+          title: form.seoTitle.trim() || undefined,
+          description: form.seoDescription.trim() || undefined,
+          keywords: form.seoKeywords
+            .split(',')
+            .map((k) => k.trim())
+            .filter(Boolean),
+          ogTitle: form.ogTitle.trim() || undefined,
+          ogDescription: form.ogDescription.trim() || undefined,
+          ogImage: form.ogImage.trim() || undefined,
+          canonicalUrl: form.canonicalUrl.trim() || undefined,
+          noIndex: form.noIndex,
+          noFollow: form.noFollow,
+        },
         isFeatured: form.isFeatured,
         isNewDrop: form.isNewDrop,
         isBestSeller: form.isBestSeller,
         inStock: form.inStock,
+      }
+
+      if (body.seo && !body.seo.keywords?.length) delete body.seo.keywords
+      const hasKeywords = !!body.seo?.keywords?.length
+      if (
+        body.seo &&
+        !hasKeywords &&
+        !body.seo.title &&
+        !body.seo.description &&
+        !body.seo.ogTitle &&
+        !body.seo.ogDescription &&
+        !body.seo.ogImage &&
+        !body.seo.canonicalUrl &&
+        !body.seo.noIndex &&
+        !body.seo.noFollow
+      ) {
+        delete body.seo
+      }
+
+      if (editing && product?.seo && !body.seo) {
+        body.seo = null
       }
 
       const url = editing ? `/api/products/${product.slug}` : '/api/products'
@@ -126,7 +219,7 @@ function ProductModal({
   }
 
   const inputCls =
-    'bg-[#FAFAF8] border border-[#DDD8CF] text-[#0F1A11] placeholder-[#6B7B6E]/70 px-4 py-2.5 w-full focus:outline-none focus:border-[#1B2E1F] font-sans text-sm transition-colors'
+    'bg-n-white border border-n-border text-n-ink placeholder-n-muted/70 px-4 py-2.5 w-full focus:outline-none focus:border-n-forest font-sans text-sm transition-colors'
 
   return (
     <div
@@ -134,17 +227,17 @@ function ProductModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl mx-4 mt-16 mb-20 bg-[#F5F0E6] border border-[#DDD8CF] p-8 relative"
+        className="w-full max-w-2xl mx-4 mt-16 mb-20 bg-n-cream border border-n-border p-8 relative"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-[#6B7B6E] hover:text-[#0F1A11] transition-colors"
+          className="absolute top-4 right-4 text-n-muted hover:text-n-ink transition-colors"
         >
           <X size={18} strokeWidth={1.5} />
         </button>
 
-        <p className="font-sans text-base text-[#0F1A11] mb-6">
+        <p className="font-sans text-base text-n-ink mb-6">
           {editing ? 'Edit Product' : 'Add Product'}
         </p>
 
@@ -231,6 +324,84 @@ function ProductModal({
             />
           </div>
 
+          <div className="pt-3 mt-2 border-t border-n-border">
+            <p className="font-sans text-[10px] tracking-widest uppercase text-n-muted mb-3">
+              SEO / Meta
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <input
+                className={inputCls}
+                placeholder="Meta Title"
+                value={form.seoTitle}
+                onChange={(e) => field('seoTitle', e.target.value)}
+              />
+              <input
+                className={inputCls}
+                placeholder="Canonical URL"
+                value={form.canonicalUrl}
+                onChange={(e) => field('canonicalUrl', e.target.value)}
+              />
+            </div>
+
+            <textarea
+              className={inputCls + ' resize-none mt-4'}
+              placeholder="Meta Description"
+              rows={3}
+              value={form.seoDescription}
+              onChange={(e) => field('seoDescription', e.target.value)}
+            />
+
+            <input
+              className={inputCls + ' mt-4'}
+              placeholder="Meta Keywords (comma separated)"
+              value={form.seoKeywords}
+              onChange={(e) => field('seoKeywords', e.target.value)}
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+              <input
+                className={inputCls}
+                placeholder="OG Title"
+                value={form.ogTitle}
+                onChange={(e) => field('ogTitle', e.target.value)}
+              />
+              <input
+                className={inputCls}
+                placeholder="OG Image URL"
+                value={form.ogImage}
+                onChange={(e) => field('ogImage', e.target.value)}
+              />
+            </div>
+
+            <textarea
+              className={inputCls + ' resize-none mt-4'}
+              placeholder="OG Description"
+              rows={3}
+              value={form.ogDescription}
+              onChange={(e) => field('ogDescription', e.target.value)}
+            />
+
+            <div className="flex flex-wrap gap-6 mt-4">
+              {(
+                [
+                  { key: 'noIndex', label: 'No Index' },
+                  { key: 'noFollow', label: 'No Follow' },
+                ] as { key: keyof FormState; label: string }[]
+              ).map(({ key, label }) => (
+                <label key={key} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form[key] as boolean}
+                    onChange={(e) => field(key, e.target.checked)}
+                    className="accent-n-forest w-4 h-4"
+                  />
+                  <span className="font-sans text-xs text-n-muted">{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {(
               [
@@ -248,9 +419,9 @@ function ProductModal({
                   type="checkbox"
                   checked={form[key] as boolean}
                   onChange={(e) => field(key, e.target.checked)}
-                  className="accent-[#1B2E1F] w-4 h-4"
+                  className="accent-n-forest w-4 h-4"
                 />
-                <span className="font-sans text-xs text-[#6B7B6E]">{label}</span>
+                <span className="font-sans text-xs text-n-muted">{label}</span>
               </label>
             ))}
           </div>
@@ -260,7 +431,7 @@ function ProductModal({
           <button
             type="submit"
             disabled={saving}
-            className="bg-[#1B2E1F] text-[#F5F0E6] w-full py-3 font-sans text-xs tracking-widest uppercase hover:bg-[#D4A853] hover:text-[#1B2E1F] transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-2"
+            className="bg-n-forest text-n-cream w-full py-3 font-sans text-xs tracking-widest uppercase hover:bg-n-gold hover:text-n-forest transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-2"
           >
             {saving ? 'Saving...' : editing ? 'Save Changes' : 'Add Product'}
           </button>
@@ -318,36 +489,40 @@ export default function AdminProductsPage() {
         />
       )}
 
-      <div className="px-8 py-8 border-b border-[#DDD8CF] flex items-center justify-between">
-        <h1 className="font-sans text-xl text-[#0F1A11] font-light">Products</h1>
+      <div className="mb-8 pb-6 border-b border-n-border flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div className="flex-1">
+          <h1 className="[font-family:var(--font-display)] text-3xl font-light text-n-ink">Products</h1>
+          <p className="font-sans text-sm text-n-muted mt-2">Create and manage products in your catalog.</p>
+        </div>
         <button
           onClick={() => setModal('add')}
-          className="flex items-center gap-2 bg-[#1B2E1F] text-[#F5F0E6] px-6 py-2 font-sans text-xs tracking-widest uppercase hover:bg-[#D4A853] hover:text-[#1B2E1F] transition-colors"
+          data-cursor="hover"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-n-forest text-n-cream px-6 py-3 font-sans text-xs tracking-widest uppercase hover:bg-n-gold hover:text-n-forest transition-colors"
         >
           <Plus size={14} strokeWidth={2} />
           Add Product
         </button>
       </div>
 
-      <div className="px-8 py-8 pb-12">
-        <div className="bg-[#FFFFFF] border border-[#DDD8CF] overflow-x-auto">
+      <div>
+        <div className="bg-n-card border border-n-border overflow-x-auto">
           {loading ? (
-            <div className="px-6 py-12 text-center font-sans text-sm text-[#6B7B6E]">
+            <div className="px-6 py-12 text-center font-sans text-sm text-n-muted">
               Loading...
             </div>
           ) : !products.length ? (
-            <div className="px-6 py-12 text-center font-sans text-sm text-[#6B7B6E]">
+            <div className="px-6 py-12 text-center font-sans text-sm text-n-muted">
               No products
             </div>
           ) : (
             <table className="w-full min-w-[800px]">
               <thead>
-                <tr className="bg-[#1B2E1F]">
+                <tr className="bg-n-forest">
                   {['Image', 'Product', 'Category', 'Price', 'Stock', 'Badges', 'Actions'].map(
                     (h) => (
                       <th
                         key={h}
-                        className="font-sans text-[10px] tracking-widest uppercase text-[#F5F0E6] px-6 py-4 text-left"
+                        className="font-sans text-[10px] tracking-widest uppercase text-n-cream px-6 py-4 text-left"
                       >
                         {h}
                       </th>
@@ -359,11 +534,11 @@ export default function AdminProductsPage() {
                 {products.map((product) => (
                   <tr
                     key={product._id}
-                    className="border-b border-[#DDD8CF] last:border-0 hover:bg-[#F5F0E6]/40 transition-colors"
+                    className="border-b border-n-border last:border-0 hover:bg-n-cream/30 transition-colors"
                   >
                     <td className="px-6 py-4">
                       {product.images[0] ? (
-                        <div className="relative w-12 h-12 rounded-sm overflow-hidden bg-[#F5F0E6]">
+                        <div className="relative w-12 h-12 rounded-sm overflow-hidden bg-n-cream">
                           <Image
                             src={product.images[0]}
                             alt={product.name}
@@ -373,25 +548,25 @@ export default function AdminProductsPage() {
                           />
                         </div>
                       ) : (
-                        <div className="w-12 h-12 rounded-sm bg-gradient-to-br from-[#F5F0E6] to-[#EEE7DA]" />
+                        <div className="w-12 h-12 rounded-sm bg-gradient-to-br from-n-cream to-n-offwhite" />
                       )}
                     </td>
 
                     <td className="px-6 py-4">
-                      <p className="font-sans text-sm text-[#0F1A11]">{product.name}</p>
-                      <p className="font-sans text-xs text-[#6B7B6E]">{product.tagline}</p>
+                      <p className="font-sans text-sm text-n-ink">{product.name}</p>
+                      <p className="font-sans text-xs text-n-muted">{product.tagline}</p>
                     </td>
 
                     <td className="px-6 py-4">
-                      <span className="font-sans text-[10px] tracking-wider uppercase bg-[#F5F0E6] text-[#6B7B6E] px-2 py-1 rounded-full border border-[#DDD8CF]">
+                      <span className="font-sans text-[10px] tracking-wider uppercase bg-n-cream text-n-muted px-2 py-1 rounded-full border border-n-border">
                         {product.category}
                       </span>
                     </td>
 
                     <td className="px-6 py-4">
-                      <p className="font-sans text-sm text-[#0F1A11]">{formatPKR(product.price)}</p>
+                      <p className="font-sans text-sm text-n-ink">{formatPKR(product.price)}</p>
                       {product.comparePrice && (
-                        <p className="font-sans text-xs text-[#6B7B6E] line-through">
+                        <p className="font-sans text-xs text-n-muted line-through">
                           {formatPKR(product.comparePrice)}
                         </p>
                       )}
@@ -424,7 +599,7 @@ export default function AdminProductsPage() {
                     <td className="px-6 py-4">
                       <button
                         onClick={() => setModal(product)}
-                        className="text-[#6B7B6E] hover:text-[#0F1A11] transition-colors"
+                        className="text-n-muted hover:text-n-ink transition-colors"
                         title="Edit product"
                       >
                         <Edit2 size={14} strokeWidth={1.5} />

@@ -19,7 +19,15 @@ export async function POST(request: Request) {
 
     const token = process.env.ADMIN_SECRET_KEY ?? 'nuura-admin-secret-key-2025'
 
-    return NextResponse.json({ success: true, token })
+    const res = NextResponse.json({ success: true })
+    res.cookies.set('nuura-admin-token', token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24, // 24h
+      secure: process.env.NODE_ENV === 'production',
+    })
+    return res
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

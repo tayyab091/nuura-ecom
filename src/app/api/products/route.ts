@@ -1,7 +1,72 @@
 import { NextResponse } from 'next/server'
-import { connectDB } from '@/lib/mongodb'
+import { connectDB, MongoUnavailableError } from '@/lib/mongodb'
 import ProductModel from '@/models/Product'
 import { MOCK_PRODUCTS as MOCK_DATA } from '@/lib/mockData'
+import { isAdminAuthed } from '@/lib/adminAuth'
+
+function withTimeout<T>(promise: Promise<T>, timeoutMS: number): Promise<T> {
+  if (!Number.isFinite(timeoutMS) || timeoutMS <= 0) return promise
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('timeout')), timeoutMS)
+    promise
+      .then((value) => {
+        clearTimeout(timeout)
+        resolve(value)
+      })
+      .catch((err) => {
+        clearTimeout(timeout)
+        reject(err)
+      })
+  })
+}
+
+function normalizeKeywords(input: unknown): string[] | undefined {
+  if (Array.isArray(input)) {
+    const cleaned = input
+      .map((v) => String(v))
+      .map((v) => v.trim())
+      .filter(Boolean)
+    return cleaned.length ? cleaned : undefined
+  }
+  if (typeof input === 'string') {
+    const cleaned = input
+      .split(',')
+      .map((v) => v.trim())
+      .filter(Boolean)
+    return cleaned.length ? cleaned : undefined
+  }
+  return undefined
+}
+
+function normalizeSeo(input: unknown) {
+  if (!input || typeof input !== 'object') return undefined
+  const seo = input as Record<string, unknown>
+  const normalized: Record<string, unknown> = { ...seo }
+
+  for (const key of ['title', 'description', 'ogTitle', 'ogDescription', 'ogImage', 'canonicalUrl'] as const) {
+    const value = normalized[key]
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      if (trimmed) normalized[key] = trimmed
+      else delete normalized[key]
+    } else if (value === null || value === undefined) {
+      delete normalized[key]
+    }
+  }
+
+  const keywords = normalizeKeywords(seo.keywords)
+  if (keywords) normalized.keywords = keywords
+  else delete normalized.keywords
+
+  if (seo.noIndex === true || seo.noIndex === false) normalized.noIndex = seo.noIndex
+  else delete normalized.noIndex
+
+  if (seo.noFollow === true || seo.noFollow === false) normalized.noFollow = seo.noFollow
+  else delete normalized.noFollow
+
+  const hasAny = Object.keys(normalized).length > 0
+  return hasAny ? normalized : undefined
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -13,25 +78,29 @@ export async function GET(request: Request) {
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 12
 
   try {
-    await connectDB()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await connectDB({ maxWaitMS: 2000 })
     // Treat missing `inStock` as in-stock (older/manual inserts).
-    let query: any = ProductModel.find({ inStock: { $ne: false } })
+    let query = ProductModel.find({ inStock: { $ne: false } })
     if (category) query = query.where('category').equals(category)
     if (featured) query = query.where('isFeatured').equals(true)
     if (newDrop) query = query.where('isNewDrop').equals(true)
 
-    const sort =
+    const DESC = -1 as const
+    const sort: Record<string, 1 | -1> =
       sortParam === 'newest'
-        ? { createdAt: -1 }
+        ? { createdAt: DESC }
         : sortParam === 'updated'
-          ? { updatedAt: -1 }
-          : { isBestSeller: -1, isNewDrop: -1, updatedAt: -1 }
+          ? { updatedAt: DESC }
+          : { isBestSeller: DESC, isNewDrop: DESC, updatedAt: DESC }
 
-    const products = await query
-      .sort(sort)
-      .limit(limit)
-      .lean()
+    const products = await withTimeout(
+      query
+        .maxTimeMS(2000)
+        .sort(sort)
+        .limit(limit)
+        .lean(),
+      2500
+    )
 
     // If DB is reachable, return DB results even if empty (no silent mock fallback).
     return NextResponse.json(
@@ -64,10 +133,18 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    await connectDB()
+    if (!isAdminAuthed(request)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    await connectDB({ maxWaitMS: 8000 })
     const body = await request.json()
 
-    const { name, tagline, description, price, category, stockCount } = body as {
+    const normalizedSeo = normalizeSeo(body?.seo)
+    const normalizedBody: Record<string, unknown> = { ...(body as Record<string, unknown>) }
+    if ('seo' in normalizedBody) delete normalizedBody.seo
+    if (normalizedSeo) normalizedBody.seo = normalizedSeo
+
+    const { name, tagline, description, price, category, stockCount } = normalizedBody as {
       name?: string
       tagline?: string
       description?: string
@@ -90,15 +167,23 @@ export async function POST(request: Request) {
       .trim()
       .replace(/\s+/g, '-')
 
+    const inStockValue =
+      typeof normalizedBody.inStock === 'boolean'
+        ? normalizedBody.inStock
+        : (stockCount ?? 0) > 0
+
     const product = await ProductModel.create({
-      ...body,
+      ...normalizedBody,
       slug,
       stockCount: stockCount ?? 0,
-      inStock: body.inStock ?? (stockCount ?? 0) > 0,
+      inStock: inStockValue,
     })
 
     return NextResponse.json({ product }, { status: 201 })
   } catch (err: unknown) {
+    if (err instanceof MongoUnavailableError) {
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    }
     if (
       err instanceof Error &&
       'code' in err &&

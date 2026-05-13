@@ -73,10 +73,20 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [copied, setCopied] = useState(false)
+  const [storeSettings, setStoreSettings] = useState<null | {
+    shippingFlatFee: number
+    freeShippingThreshold: number
+    whatsappNumber?: string
+    paymentCodEnabled: boolean
+    paymentJazzcashEnabled: boolean
+    paymentEasypaisaEnabled: boolean
+    paymentNayapayEnabled: boolean
+  }>(null)
 
   const {
     register,
     handleSubmit,
+    setValue,
     watch,
     formState: { errors },
   } = useForm<CheckoutForm>({
@@ -87,12 +97,53 @@ export default function CheckoutPage() {
   const selectedCity = watch('city')
   const selectedPayment = watch('paymentMethod')
 
+  useEffect(() => {
+    fetch('/api/settings')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.settings) {
+          setStoreSettings({
+            shippingFlatFee: Number(d.settings.shippingFlatFee ?? 0),
+            freeShippingThreshold: Number(d.settings.freeShippingThreshold ?? FREE_SHIPPING_THRESHOLD),
+            whatsappNumber: typeof d.settings.whatsappNumber === 'string' ? d.settings.whatsappNumber : undefined,
+            paymentCodEnabled: Boolean(d.settings.paymentCodEnabled ?? true),
+            paymentJazzcashEnabled: Boolean(d.settings.paymentJazzcashEnabled ?? true),
+            paymentEasypaisaEnabled: Boolean(d.settings.paymentEasypaisaEnabled ?? true),
+            paymentNayapayEnabled: Boolean(d.settings.paymentNayapayEnabled ?? true),
+          })
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  const whatsappNumber = storeSettings?.whatsappNumber?.trim() || WHATSAPP_NUMBER
+
+  const enabledPayments = {
+    cod: storeSettings?.paymentCodEnabled ?? true,
+    jazzcash: storeSettings?.paymentJazzcashEnabled ?? true,
+    easypaisa: storeSettings?.paymentEasypaisaEnabled ?? true,
+    nayapay: storeSettings?.paymentNayapayEnabled ?? true,
+  }
+
+  const paymentOptions = PAYMENT_OPTIONS.filter((p) => enabledPayments[p.id])
+
+  useEffect(() => {
+    if (enabledPayments[selectedPayment]) return
+    const next = (paymentOptions[0]?.id ?? 'cod') as CheckoutForm['paymentMethod']
+    setValue('paymentMethod', next, { shouldDirty: true, shouldValidate: true })
+  }, [enabledPayments, paymentOptions, selectedPayment, setValue])
+
+  const freeThreshold = storeSettings?.freeShippingThreshold ?? FREE_SHIPPING_THRESHOLD
+  const flatFee = storeSettings?.shippingFlatFee ?? 0
+
   const shippingFee =
-    totalPrice >= FREE_SHIPPING_THRESHOLD
+    totalPrice >= freeThreshold
       ? 0
-      : selectedCity
-        ? SHIPPING_RATES[selectedCity as keyof typeof SHIPPING_RATES] ?? SHIPPING_RATES.Other
-        : 0
+      : flatFee > 0
+        ? flatFee
+        : selectedCity
+          ? SHIPPING_RATES[selectedCity as keyof typeof SHIPPING_RATES] ?? SHIPPING_RATES.Other
+          : 0
   const total = totalPrice + shippingFee
 
   useEffect(() => {
@@ -203,7 +254,7 @@ export default function CheckoutPage() {
               <section>
                 <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', color: '#1A1714', marginBottom: '1rem' }}>Payment Method</h2>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem' }} className='sm:grid-cols-2'>
-                  {PAYMENT_OPTIONS.map((opt) => {
+                  {paymentOptions.map((opt) => {
                     const isSelected = selectedPayment === opt.id
                     return (
                       <label
@@ -279,7 +330,7 @@ export default function CheckoutPage() {
                       <p style={{ fontSize: '11px', color: '#8C8078', marginTop: '0.25rem' }}>{copied ? 'Copied!' : 'Tap to copy'}</p>
                       <p style={{ marginTop: '0.75rem', fontSize: '14px', color: '#C4614A' }}>Send exactly: PKR {total.toLocaleString()}</p>
                       <a
-                        href={'https://wa.me/' + WHATSAPP_NUMBER}
+                        href={'https://wa.me/' + whatsappNumber}
                         target='_blank'
                         rel='noopener noreferrer'
                         style={{

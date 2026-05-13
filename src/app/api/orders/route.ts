@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { connectDB } from '@/lib/mongodb'
+import { connectDB, MongoUnavailableError } from '@/lib/mongodb'
 import Order from '@/models/Order'
 import { generateOrderNumber } from '@/lib/utils'
 import { sendOrderConfirmationEmail } from '@/lib/email'
+import StoreSettings from '@/models/StoreSettings'
+import { isAdminAuthed } from '@/lib/adminAuth'
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,12 +26,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Payment method is required' }, { status: 400 })
     }
 
+    await connectDB({ maxWaitMS: 8000 })
+
+    const settings = await StoreSettings.findOne({ key: 'default' }).lean().catch(() => null)
+    const enabled = {
+      cod: settings?.paymentCodEnabled ?? true,
+      jazzcash: settings?.paymentJazzcashEnabled ?? true,
+      easypaisa: settings?.paymentEasypaisaEnabled ?? true,
+      nayapay: settings?.paymentNayapayEnabled ?? true,
+    } as const
+
+    if (!enabled[paymentMethod as keyof typeof enabled]) {
+      return NextResponse.json({ error: 'Selected payment method is not available' }, { status: 400 })
+    }
+
     const orderNumber = generateOrderNumber()
 
-    // Determine statuses based on payment method
+    // Determine statuses based on payment method + store rules
     const isCOD = paymentMethod === 'cod'
+    const autoConfirmCod = settings?.orderAutoConfirmCod ?? true
     const paymentStatus = isCOD ? 'pending' : 'pending_verification'
-    const orderStatus = isCOD ? 'confirmed' : 'pending'
+    const orderStatus = isCOD ? (autoConfirmCod ? 'confirmed' : 'pending') : 'pending'
 
     // Map cart items to order item shape
     const orderItems = items.map((item: { product: { _id: string; name: string; price: number; images?: string[] }; quantity: number }) => ({
@@ -39,8 +56,6 @@ export async function POST(req: NextRequest) {
       quantity: item.quantity,
       image: item.product.images?.[0] ?? '',
     }))
-
-    await connectDB()
 
     const order = await Order.create({
       orderNumber,
@@ -85,17 +100,27 @@ export async function POST(req: NextRequest) {
       paymentMethod,
     })
   } catch (error) {
+    if (error instanceof MongoUnavailableError) {
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    }
     console.error('Order creation failed:', error)
     return NextResponse.json({ error: 'Failed to create order' }, { status: 500 })
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    await connectDB()
+    // Admin-only listing (defense-in-depth).
+    if (!isAdminAuthed(request)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    await connectDB({ maxWaitMS: 8000 })
     const orders = await Order.find({}).sort({ createdAt: -1 }).limit(50).lean()
     return NextResponse.json({ orders })
-  } catch {
+  } catch (error) {
+    if (error instanceof MongoUnavailableError) {
+      return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    }
     return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 })
   }
 }

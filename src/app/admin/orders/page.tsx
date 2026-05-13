@@ -84,19 +84,19 @@ function OrderDetailModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl mx-4 mt-20 mb-20 bg-[#FAFAF8] border border-[#DDD8CF] p-8 relative"
+        className="w-full max-w-2xl mx-4 mt-20 mb-20 bg-n-white border border-n-border p-8 relative"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-[#6B7B6E] hover:text-[#0F1A11] transition-colors"
+          className="absolute top-4 right-4 text-n-muted hover:text-n-ink transition-colors"
         >
           <X size={18} strokeWidth={1.5} />
         </button>
 
         <div className="mb-8">
-          <p className="font-mono text-base text-[#0F1A11]">{order.orderNumber}</p>
-          <p className="font-sans text-xs text-[#6B7B6E] mt-1">
+          <p className="font-mono text-base text-n-ink">{order.orderNumber}</p>
+          <p className="font-sans text-xs text-n-muted mt-1">
             {new Date(order.createdAt).toLocaleDateString('en-PK', {
               weekday: 'long',
               year: 'numeric',
@@ -121,37 +121,37 @@ function OrderDetailModal({
         </div>
 
         <div className="mb-6">
-          <p className="font-sans text-[10px] tracking-widest uppercase text-[#6B7B6E] mb-3">
+          <p className="font-sans text-[10px] tracking-widest uppercase text-n-muted mb-3">
             Customer
           </p>
-          <p className="font-sans text-sm text-[#0F1A11]">{order.customer.name}</p>
-          <p className="font-sans text-xs text-[#6B7B6E]">{order.customer.email}</p>
-          <p className="font-sans text-xs text-[#6B7B6E]">{order.customer.phone}</p>
+          <p className="font-sans text-sm text-n-ink">{order.customer.name}</p>
+          <p className="font-sans text-xs text-n-muted">{order.customer.email}</p>
+          <p className="font-sans text-xs text-n-muted">{order.customer.phone}</p>
         </div>
 
         <div className="mb-6">
-          <p className="font-sans text-[10px] tracking-widest uppercase text-[#6B7B6E] mb-3">
+          <p className="font-sans text-[10px] tracking-widest uppercase text-n-muted mb-3">
             Delivery Address
           </p>
-          <p className="font-sans text-sm text-[#0F1A11]">{order.shippingAddress.street}</p>
-          <p className="font-sans text-xs text-[#6B7B6E]">
+          <p className="font-sans text-sm text-n-ink">{order.shippingAddress.street}</p>
+          <p className="font-sans text-xs text-n-muted">
             {order.shippingAddress.city}, {order.shippingAddress.province}
           </p>
-          <p className="font-sans text-xs text-[#6B7B6E]">{order.shippingAddress.phone}</p>
+          <p className="font-sans text-xs text-n-muted">{order.shippingAddress.phone}</p>
         </div>
 
         <div className="mb-6">
-          <p className="font-sans text-[10px] tracking-widest uppercase text-[#6B7B6E] mb-3">
+          <p className="font-sans text-[10px] tracking-widest uppercase text-n-muted mb-3">
             Order Items
           </p>
           <div className="flex flex-col gap-3">
             {order.items.map((item, i) => (
               <div key={i} className="flex justify-between items-center">
                 <div>
-                  <p className="font-sans text-sm text-[#0F1A11]">{item.name}</p>
-                  <p className="font-sans text-xs text-[#6B7B6E]">Qty: {item.quantity}</p>
+                  <p className="font-sans text-sm text-n-ink">{item.name}</p>
+                  <p className="font-sans text-xs text-n-muted">Qty: {item.quantity}</p>
                 </div>
-                <p className="font-sans text-sm text-[#0F1A11]">
+                <p className="font-sans text-sm text-n-ink">
                   {formatPKR(item.price * item.quantity)}
                 </p>
               </div>
@@ -159,16 +159,16 @@ function OrderDetailModal({
           </div>
         </div>
 
-        <div className="border-t border-[#DDD8CF] pt-4 flex flex-col gap-2">
-          <div className="flex justify-between font-sans text-xs text-[#6B7B6E]">
+        <div className="border-t border-n-border pt-4 flex flex-col gap-2">
+          <div className="flex justify-between font-sans text-xs text-n-muted">
             <span>Subtotal</span>
             <span>{formatPKR(order.subtotal)}</span>
           </div>
-          <div className="flex justify-between font-sans text-xs text-[#6B7B6E]">
+          <div className="flex justify-between font-sans text-xs text-n-muted">
             <span>Shipping</span>
             <span>{order.shippingFee === 0 ? 'Free' : formatPKR(order.shippingFee)}</span>
           </div>
-          <div className="flex justify-between font-sans text-sm text-[#0F1A11] mt-1">
+          <div className="flex justify-between font-sans text-sm text-n-ink mt-1">
             <span>Total</span>
             <span>{formatPKR(order.total)}</span>
           </div>
@@ -176,10 +176,10 @@ function OrderDetailModal({
 
         {order.notes && (
           <div className="mt-4">
-            <p className="font-sans text-[10px] tracking-widest uppercase text-[#6B7B6E] mb-2">
+            <p className="font-sans text-[10px] tracking-widest uppercase text-n-muted mb-2">
               Note
             </p>
-            <p className="font-sans text-xs text-[#6B7B6E] italic">{order.notes}</p>
+            <p className="font-sans text-xs text-n-muted italic">{order.notes}</p>
           </div>
         )}
       </div>
@@ -249,11 +249,11 @@ export default function AdminOrdersPage() {
         <OrderDetailModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
       )}
 
-      <div className="px-8 py-8 border-b border-[#DDD8CF]">
-        <h1 className="font-sans text-xl text-[#0F1A11] font-light">Orders</h1>
+      <div className="mb-8 pb-6 border-b border-n-border">
+        <h1 className="[font-family:var(--font-display)] text-3xl font-light text-n-ink">Orders</h1>
       </div>
 
-      <div className="px-8 py-4 flex gap-2 flex-wrap">
+      <div className="mb-6 flex gap-2 flex-wrap">
         {FILTER_TABS.map((tab) => (
           <button
             key={tab.value}
@@ -261,8 +261,8 @@ export default function AdminOrdersPage() {
             className={[
               'font-sans text-xs tracking-wider px-4 py-2 rounded-full transition-colors',
               activeFilter === tab.value
-                ? 'bg-[#1B2E1F] text-[#F5F0E6]'
-                : 'bg-[#FAFAF8] text-[#6B7B6E] border border-[#DDD8CF] hover:text-[#0F1A11]',
+                ? 'bg-n-forest text-n-cream'
+                : 'bg-n-white text-n-muted border border-n-border hover:text-n-ink',
             ].join(' ')}
           >
             {tab.label}
@@ -271,25 +271,25 @@ export default function AdminOrdersPage() {
         ))}
       </div>
 
-      <div className="px-8 pb-12">
-        <div className="bg-[#FFFFFF] border border-[#DDD8CF] overflow-x-auto">
+      <div>
+        <div className="bg-n-card border border-n-border overflow-x-auto">
           {loading ? (
-            <div className="px-6 py-12 text-center font-sans text-sm text-[#6B7B6E]">
+            <div className="px-6 py-12 text-center font-sans text-sm text-n-muted">
               Loading...
             </div>
           ) : !paginated.length ? (
-            <div className="px-6 py-12 text-center font-sans text-sm text-[#6B7B6E]">
+            <div className="px-6 py-12 text-center font-sans text-sm text-n-muted">
               No orders
             </div>
           ) : (
             <table className="w-full min-w-[900px]">
               <thead>
-                <tr className="bg-[#1B2E1F]">
+                <tr className="bg-n-forest">
                   {['Order #', 'Customer', 'Items', 'Total', 'Payment', 'Status', 'Date', 'Actions'].map(
                     (h) => (
                       <th
                         key={h}
-                        className="font-sans text-[10px] tracking-widest uppercase text-[#F5F0E6] px-6 py-4 text-left"
+                        className="font-sans text-[10px] tracking-widest uppercase text-n-cream px-6 py-4 text-left"
                       >
                         {h}
                       </th>
@@ -301,34 +301,34 @@ export default function AdminOrdersPage() {
                 {paginated.map((order) => (
                   <tr
                     key={order._id}
-                    className="border-b border-[#DDD8CF] last:border-0 hover:bg-[#F5F0E6]/40 transition-colors"
+                    className="border-b border-n-border last:border-0 hover:bg-n-cream/30 transition-colors"
                   >
-                    <td className="font-mono text-xs text-[#0F1A11] px-6 py-4">
+                    <td className="font-mono text-xs text-n-ink px-6 py-4">
                       {order.orderNumber}
                     </td>
                     <td className="px-6 py-4">
-                      <p className="font-sans text-sm text-[#0F1A11]">{order.customer.name}</p>
-                      <p className="font-sans text-xs text-[#6B7B6E]">{order.customer.email}</p>
+                      <p className="font-sans text-sm text-n-ink">{order.customer.name}</p>
+                      <p className="font-sans text-xs text-n-muted">{order.customer.email}</p>
                     </td>
-                    <td className="font-sans text-sm text-[#6B7B6E] px-6 py-4">
+                    <td className="font-sans text-sm text-n-muted px-6 py-4">
                       {order.items.length} item{order.items.length !== 1 ? 's' : ''}
                     </td>
-                    <td className="font-sans text-sm text-[#0F1A11] px-6 py-4">
+                    <td className="font-sans text-sm text-n-ink px-6 py-4">
                       {formatPKR(order.total)}
                     </td>
                     <td className="px-6 py-4">
                       <Pill
                         text={order.paymentMethod}
-                        className={PAYMENT_BADGE[order.paymentMethod] ?? 'bg-[#DDD8CF] text-[#6B7B6E]'}
+                        className={PAYMENT_BADGE[order.paymentMethod] ?? 'bg-n-border text-n-muted'}
                       />
                     </td>
                     <td className="px-6 py-4">
                       <Pill
                         text={order.orderStatus}
-                        className={STATUS_BADGE[order.orderStatus] ?? 'bg-[#DDD8CF] text-[#6B7B6E]'}
+                        className={STATUS_BADGE[order.orderStatus] ?? 'bg-n-border text-n-muted'}
                       />
                     </td>
-                    <td className="font-sans text-xs text-[#6B7B6E] px-6 py-4">
+                    <td className="font-sans text-xs text-n-muted px-6 py-4">
                       {new Date(order.createdAt).toLocaleDateString('en-PK', {
                         day: 'numeric',
                         month: 'short',
@@ -339,7 +339,7 @@ export default function AdminOrdersPage() {
                       <div className="flex gap-2 flex-wrap">
                         <button
                           onClick={() => setSelectedOrder(order)}
-                          className="text-[#6B7B6E] hover:text-[#0F1A11] transition-colors"
+                          className="text-n-muted hover:text-n-ink transition-colors"
                           title="View Details"
                         >
                           <Eye size={14} strokeWidth={1.5} />
@@ -355,7 +355,7 @@ export default function AdminOrdersPage() {
                                 })
                               }
                               disabled={actionId === order._id}
-                              className="font-sans text-[10px] tracking-wider uppercase px-3 py-1 bg-[#1B2E1F] text-[#F5F0E6] border border-[#1B2E1F] hover:bg-[#D4A853] hover:border-[#D4A853] hover:text-[#1B2E1F] transition-colors disabled:opacity-50"
+                              className="font-sans text-[10px] tracking-wider uppercase px-3 py-1 bg-n-forest text-n-cream border border-n-forest hover:bg-n-gold hover:border-n-gold hover:text-n-forest transition-colors disabled:opacity-50"
                             >
                               Approve
                             </button>
@@ -367,7 +367,7 @@ export default function AdminOrdersPage() {
                                 })
                               }
                               disabled={actionId === order._id}
-                              className="font-sans text-[10px] tracking-wider uppercase px-3 py-1 bg-[#F5F0E6] text-[#6B7B6E] border border-[#DDD8CF] hover:bg-[#EEE7DA] transition-colors disabled:opacity-50"
+                              className="font-sans text-[10px] tracking-wider uppercase px-3 py-1 bg-n-cream text-n-muted border border-n-border hover:bg-n-offwhite transition-colors disabled:opacity-50"
                             >
                               Reject
                             </button>
@@ -415,8 +415,8 @@ export default function AdminOrdersPage() {
                 className={[
                   'font-sans text-xs px-3 py-2 transition-colors',
                   p === page
-                    ? 'bg-[#1B2E1F] text-[#F5F0E6]'
-                    : 'bg-[#FAFAF8] text-[#6B7B6E] border border-[#DDD8CF] hover:text-[#0F1A11]',
+                    ? 'bg-n-forest text-n-cream'
+                    : 'bg-n-white text-n-muted border border-n-border hover:text-n-ink',
                 ].join(' ')}
               >
                 {p}

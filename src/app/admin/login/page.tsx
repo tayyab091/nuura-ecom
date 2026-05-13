@@ -25,9 +25,7 @@ export default function AdminLoginPage() {
         setError(data.error ?? 'Invalid credentials')
         return
       }
-      // Set cookie for 24 hours
-      document.cookie = `nuura-admin-token=${data.token}; path=/; max-age=86400`
-      router.push('/admin')
+      router.replace('/admin')
     } catch {
       setError('Something went wrong. Please try again.')
     } finally {
@@ -36,53 +34,79 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0F0F0F] flex items-start justify-center">
-      <div className="w-full max-w-sm pt-32 px-4">
-        <div className="bg-[#141414] border border-white/5 p-10">
-          {/* Header */}
-          <p
-            style={{ fontFamily: 'var(--font-italiana)', letterSpacing: '0.2em' }}
-            className="text-3xl text-white mb-2"
-          >
-            Nuura
-          </p>
-          <p className="font-sans text-xs text-white/30 tracking-widest uppercase mb-10">
-            Admin Portal
-          </p>
+    <div className="min-h-screen bg-n-offwhite flex items-center justify-center px-4 py-16">
+      <div className="w-full max-w-md">
+        <div className="bg-n-card border border-n-border rounded-2xl overflow-hidden">
+          <div className="h-1 bg-n-gold" />
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email address"
-              required
-              autoComplete="email"
-              className="bg-[#1A1A1A] border border-white/10 text-white placeholder-white/20 px-4 py-3 w-full focus:outline-none focus:border-white/30 font-sans text-sm transition-colors"
-            />
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password"
-              required
-              autoComplete="current-password"
-              className="bg-[#1A1A1A] border border-white/10 text-white placeholder-white/20 px-4 py-3 w-full focus:outline-none focus:border-white/30 font-sans text-sm transition-colors"
-            />
+          <div className="p-8">
+            <div className="text-center">
+              <p className="[font-family:var(--font-accent)] text-[18px] tracking-[0.45em] text-n-ink leading-none">
+                NUURA
+              </p>
+              <p className="font-sans text-[10px] tracking-[0.22em] uppercase text-n-muted mt-3">
+                Admin Login
+              </p>
+            </div>
 
-            {error && (
-              <p className="text-red-400 font-sans text-xs">{error}</p>
-            )}
+            <h1 className="[font-family:var(--font-display)] text-3xl font-light text-n-ink mt-8 text-center">
+              Welcome back
+            </h1>
+            <p className="font-sans text-sm text-n-muted mt-3 text-center">
+              Sign in to manage orders, products, and settings.
+            </p>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="bg-white text-[#0F0F0F] w-full py-3 mt-2 font-sans text-xs tracking-widest uppercase hover:bg-white/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Signing in...' : 'Sign In'}
-            </button>
-          </form>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-8" aria-busy={loading}>
+              <label className="flex flex-col gap-2">
+                <span className="font-sans text-[10px] tracking-[0.2em] uppercase text-n-muted">
+                  Email
+                </span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Email address"
+                  required
+                  autoComplete="email"
+                  data-cursor="hover"
+                  aria-invalid={Boolean(error)}
+                  className="bg-n-white border border-n-border text-n-ink placeholder-n-muted/70 px-4 py-3.5 w-full rounded-lg focus:outline-none focus:border-n-gold focus-visible:ring-2 focus-visible:ring-n-gold/15 font-sans text-sm transition-colors"
+                />
+              </label>
+
+              <label className="flex flex-col gap-2">
+                <span className="font-sans text-[10px] tracking-[0.2em] uppercase text-n-muted">
+                  Password
+                </span>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password"
+                  required
+                  autoComplete="current-password"
+                  data-cursor="hover"
+                  aria-invalid={Boolean(error)}
+                  className="bg-n-white border border-n-border text-n-ink placeholder-n-muted/70 px-4 py-3.5 w-full rounded-lg focus:outline-none focus:border-n-gold focus-visible:ring-2 focus-visible:ring-n-gold/15 font-sans text-sm transition-colors"
+                />
+              </label>
+
+              {error && (
+                <p role="alert" aria-live="polite" className="text-red-600 font-sans text-xs">
+                  {error}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                data-cursor="hover"
+                className="bg-n-forest text-n-cream w-full py-3.5 mt-2 rounded-lg font-sans text-xs tracking-widest uppercase hover:bg-n-gold hover:text-n-forest transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Signing in...' : 'Sign In'}
+              </button>
+            </form>
+          </div>
         </div>
       </div>
     </div>

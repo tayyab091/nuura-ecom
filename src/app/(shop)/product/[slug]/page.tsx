@@ -103,13 +103,34 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params
   const product = await getProduct(slug)
   if (!product) return { title: 'Product — Nuura' }
+
+  const seo = product.seo ?? {}
+  const title = (seo.title ?? '').trim() || `${product.name} — Nuura`
+  const description =
+    (seo.description ?? '').trim() || product.tagline || product.description
+
+  const ogTitle = (seo.ogTitle ?? '').trim() || title
+  const ogDescription = (seo.ogDescription ?? '').trim() || description
+  const ogImage = (seo.ogImage ?? '').trim()
+  const images = ogImage
+    ? [{ url: ogImage }]
+    : product.images[0]
+      ? [{ url: product.images[0] }]
+      : []
+
   return {
-    title: `${product.name} — Nuura`,
-    description: product.tagline,
+    title,
+    description,
+    keywords: seo.keywords,
+    alternates: seo.canonicalUrl ? { canonical: seo.canonicalUrl } : undefined,
+    robots:
+      seo.noIndex || seo.noFollow
+        ? { index: !seo.noIndex, follow: !seo.noFollow }
+        : undefined,
     openGraph: {
-      title: product.name,
-      description: product.tagline,
-      images: product.images[0] ? [{ url: product.images[0] }] : [],
+      title: ogTitle,
+      description: ogDescription,
+      images,
     },
   }
 }

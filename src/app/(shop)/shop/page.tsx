@@ -11,14 +11,36 @@ export const metadata = {
 
 export const dynamic = 'force-dynamic'
 
+function withTimeout<T>(promise: Promise<T>, timeoutMS: number): Promise<T> {
+  if (!Number.isFinite(timeoutMS) || timeoutMS <= 0) return promise
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('timeout')), timeoutMS)
+    promise
+      .then((value) => {
+        clearTimeout(timeout)
+        resolve(value)
+      })
+      .catch((err) => {
+        clearTimeout(timeout)
+        reject(err)
+      })
+  })
+}
+
 export default async function ShopPage() {
   const loadProducts = async () => {
     try {
-      await connectDB()
-      const products = await ProductModel.find({ inStock: { $ne: false } })
-        .sort({ isBestSeller: -1, isNewDrop: -1, updatedAt: -1 })
-        .limit(60)
-        .lean()
+      const products = await withTimeout(
+        (async () => {
+          await connectDB({ maxWaitMS: 2000 })
+          return await ProductModel.find({ inStock: { $ne: false } })
+            .maxTimeMS(2000)
+            .sort({ isBestSeller: -1, isNewDrop: -1, updatedAt: -1 })
+            .limit(60)
+            .lean()
+        })(),
+        2500
+      )
       return Array.isArray(products) && products.length > 0 ? (products as any) : (MOCK_PRODUCTS as any)
     } catch {
       return MOCK_PRODUCTS as any
