@@ -182,7 +182,11 @@ export async function POST(request: Request) {
       inStock: inStockValue,
     })
 
-    return NextResponse.json({ product }, { status: 201 })
+    // Return a plain object to avoid passing Mongoose documents to server-rendered components
+    const plain = product && typeof (product as { toObject?: unknown })?.toObject === 'function'
+      ? (product as { toObject: () => unknown }).toObject()
+      : JSON.parse(JSON.stringify(product))
+    return NextResponse.json({ product: plain }, { status: 201 })
   } catch (err: unknown) {
     if (err instanceof MongoUnavailableError) {
       return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })

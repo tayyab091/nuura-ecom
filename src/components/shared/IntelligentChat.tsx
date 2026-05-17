@@ -83,8 +83,10 @@ export default function IntelligentChat() {
 
 What would you like help with?`,
       }
-      setMessages([welcome])
-      conversationRef.current = [welcome]
+      setTimeout(() => {
+        setMessages([welcome])
+        conversationRef.current = [welcome]
+      }, 0)
     }
   }, [isOpen, messages.length, isLoading])
 

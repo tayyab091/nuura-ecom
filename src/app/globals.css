@@ -68,6 +68,38 @@ h1, h2, h3, h4 {
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 .hide-scrollbar::-webkit-scrollbar { display: none; }
 
+@keyframes nuura-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.12);
+    opacity: 0.62;
+  }
+}
+
+.nuura-pulse {
+  animation: nuura-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes nuura-bell-ring {
+  0% { transform: rotate(0deg); }
+  15% { transform: rotate(14deg); }
+  30% { transform: rotate(-8deg); }
+  45% { transform: rotate(14deg); }
+  60% { transform: rotate(-4deg); }
+  75% { transform: rotate(10deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.nuura-bell-ring {
+  transform-origin: 50% 10%;
+  animation: nuura-bell-ring 1.2s ease-in-out infinite;
+}
+
 /* IntelligentChat scrollbars (moved from inline <style> tag) */
 .nuura-chat-scroll::-webkit-scrollbar { width: 6px; }
 .nuura-chat-scroll::-webkit-scrollbar-track { background: transparent; }

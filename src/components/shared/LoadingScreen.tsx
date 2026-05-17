@@ -4,20 +4,25 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useEffect, useState } from 'react'
 
 export function LoadingScreen() {
-  const [visible, setVisible] = useState(true)
-  const [done, setDone] = useState(false)
+  const [visible, setVisible] = useState<boolean>(() => {
+    try {
+      if (typeof window === 'undefined') return true
+      return !Boolean(sessionStorage.getItem('nuura-v2-loaded'))
+    } catch {
+      return true
+    }
+  })
+  const [done, setDone] = useState<boolean>(() => {
+    try {
+      if (typeof window === 'undefined') return false
+      return Boolean(sessionStorage.getItem('nuura-v2-loaded'))
+    } catch {
+      return false
+    }
+  })
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    try {
-      if (sessionStorage.getItem('nuura-v2-loaded')) {
-        setVisible(false)
-        setDone(true)
-        return
-      }
-    } catch {
-      // Some mobile/private browsing modes can throw on sessionStorage access.
-    }
+    if (done) return
     const t = setTimeout(() => {
       setVisible(false)
       setDone(true)
@@ -28,7 +33,7 @@ export function LoadingScreen() {
       }
     }, 2400)
     return () => clearTimeout(t)
-  }, [])
+  }, [done])
 
   if (done) return null
 

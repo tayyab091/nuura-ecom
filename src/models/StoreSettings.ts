@@ -36,7 +36,7 @@ const StoreSettingsSchema = new Schema<IStoreSettings>(
     storeProvince: { type: String, default: '' },
     instagramUrl: { type: String, default: '' },
     tiktokUrl: { type: String, default: '' },
-    lowStockThreshold: { type: Number, default: 5 },
+    lowStockThreshold: { type: Number, default: 10 },
     currency: { type: String, default: 'PKR' },
     shippingFlatFee: { type: Number, default: 0 },
     freeShippingThreshold: { type: Number, default: 0 },

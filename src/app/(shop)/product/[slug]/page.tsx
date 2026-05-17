@@ -141,6 +141,33 @@ export default async function ProductPage({ params }: PageProps) {
 
   if (!product) notFound()
 
+  const base = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? 'http://localhost:3000'
+  const productUrl = `${base}/product/${product.slug}`
+  const productSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    image: product.images,
+    description: product.description,
+    sku: product._id,
+    url: productUrl,
+    offers: {
+      '@type': 'Offer',
+      priceCurrency: 'PKR',
+      price: String(product.price ?? 0),
+      availability: product.inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+    },
+  }
+  const breadcrumbSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: base },
+      { '@type': 'ListItem', position: 2, name: product.category || 'Product', item: `${base}/shop` },
+      { '@type': 'ListItem', position: 3, name: product.name, item: productUrl },
+    ],
+  }
+
   return (
     <main
       style={{
@@ -150,6 +177,14 @@ export default async function ProductPage({ params }: PageProps) {
         paddingBottom: '6rem',
       }}
     >
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
       <div style={{ padding: '0 clamp(1.5rem, 6vw, 5rem)' }}>
         <div className='grid grid-cols-1 md:grid-cols-[55%_45%] gap-12 md:gap-16 items-start'>
           <ProductImages images={product.images} name={product.name} />

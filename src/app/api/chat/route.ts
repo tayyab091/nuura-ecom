@@ -116,26 +116,27 @@ function safeNumber(n: unknown) {
   return Number.isFinite(num) ? num : 0
 }
 
-function toClientProduct(p: any): ClientProduct {
+function toClientProduct(p: unknown): ClientProduct {
+  const obj = (p ?? {}) as Record<string, unknown>
   return {
-    _id: String(p?._id ?? p?.id ?? ''),
-    slug: String(p?.slug ?? ''),
-    name: String(p?.name ?? ''),
-    tagline: String(p?.tagline ?? ''),
-    description: String(p?.description ?? ''),
-    price: safeNumber(p?.price),
-    comparePrice: p?.comparePrice ?? undefined,
-    images: Array.isArray(p?.images) ? p.images.map(String) : [],
-    category: p?.category === 'accessories' ? 'accessories' : 'self-care',
-    tags: Array.isArray(p?.tags) ? p.tags.map(String) : [],
-    inStock: Boolean(p?.inStock ?? true),
-    stockCount: safeNumber(p?.stockCount ?? 0),
-    isFeatured: Boolean(p?.isFeatured ?? false),
-    isNewDrop: Boolean(p?.isNewDrop ?? false),
-    isBestSeller: Boolean(p?.isBestSeller ?? false),
-    weight: typeof p?.weight === 'number' ? p.weight : undefined,
-    createdAt: p?.createdAt ?? new Date().toISOString(),
-    updatedAt: p?.updatedAt ?? new Date().toISOString(),
+    _id: String(obj._id ?? obj.id ?? ''),
+    slug: String(obj.slug ?? ''),
+    name: String(obj.name ?? ''),
+    tagline: String(obj.tagline ?? ''),
+    description: String(obj.description ?? ''),
+    price: safeNumber(obj.price),
+    comparePrice: obj.comparePrice as unknown as number | undefined,
+    images: Array.isArray(obj.images) ? (obj.images as unknown[]).map(String) : [],
+    category: String(obj.category) === 'accessories' ? 'accessories' : 'self-care',
+    tags: Array.isArray(obj.tags) ? (obj.tags as unknown[]).map(String) : [],
+    inStock: Boolean(obj.inStock ?? true),
+    stockCount: safeNumber(obj.stockCount ?? 0),
+    isFeatured: Boolean(obj.isFeatured ?? false),
+    isNewDrop: Boolean(obj.isNewDrop ?? false),
+    isBestSeller: Boolean(obj.isBestSeller ?? false),
+    weight: typeof obj.weight === 'number' ? (obj.weight as number) : undefined,
+    createdAt: obj.createdAt ? new Date(String(obj.createdAt)) : new Date(),
+    updatedAt: obj.updatedAt ? new Date(String(obj.updatedAt)) : new Date(),
   }
 }
 
@@ -371,7 +372,7 @@ async function dbRecommendFromOrders(context: ChatContext | undefined, limit = 6
       { $limit: limit },
     ])
 
-    const ids = also.map((x: any) => x._id).filter(Boolean)
+    const ids = also.map((x) => String((x as Record<string, unknown>)?._id)).filter(Boolean)
     if (ids.length > 0) {
       const products = await Product.find({ _id: { $in: ids }, inStock: true })
         .select('slug name tagline description price comparePrice images category tags inStock stockCount isFeatured isNewDrop isBestSeller weight createdAt updatedAt')
@@ -530,7 +531,7 @@ function etaTextForStatus(orderStatus: string) {
 }
 
 async function dbGetOrder(orderNumber: string): Promise<OrderPayload | null> {
-  const order = (await Order.findOne({ orderNumber }).lean()) as any
+  const order = (await Order.findOne({ orderNumber }).lean()) as Record<string, unknown> | null
   if (!order) return null
 
   return {
@@ -540,14 +541,17 @@ async function dbGetOrder(orderNumber: string): Promise<OrderPayload | null> {
     paymentMethod: String(order.paymentMethod),
     total: safeNumber(order.total),
     items: Array.isArray(order.items)
-      ? order.items.map((i: any) => ({
-          name: String(i.name ?? ''),
-          quantity: safeNumber(i.quantity),
-          price: safeNumber(i.price),
-          image: i.image ? String(i.image) : undefined,
-        }))
+      ? (order.items as unknown[]).map((i) => {
+          const it = i as Record<string, unknown>
+          return {
+            name: String(it.name ?? ''),
+            quantity: safeNumber(it.quantity),
+            price: safeNumber(it.price),
+            image: it.image ? String(it.image) : undefined,
+          }
+        })
       : [],
-    createdAt: order.createdAt ? new Date(order.createdAt).toISOString() : new Date().toISOString(),
+    createdAt: order.createdAt ? new Date(String(order.createdAt)).toISOString() : new Date().toISOString(),
     timeline: buildOrderTimeline(String(order.orderStatus)),
     etaText: etaTextForStatus(String(order.orderStatus)),
   }
@@ -799,12 +803,14 @@ async function getLiveCatalogSummary(maxItems = 20) {
       .lean()
 
     const lines = products
-      .map((p: any) => {
-        const disc = p.comparePrice ? ` (was PKR ${p.comparePrice.toLocaleString()})` : ''
-        const badges = [p.isNewDrop ? 'New Drop' : '', p.isBestSeller ? 'Best Seller' : '']
+      .map((p) => {
+        const prod = p as unknown as Record<string, unknown>
+        const comparePrice = prod.comparePrice as number | undefined
+        const disc = comparePrice ? ` (was PKR ${comparePrice.toLocaleString()})` : ''
+        const badges = [(prod.isNewDrop ? 'New Drop' : ''), (prod.isBestSeller ? 'Best Seller' : '')]
           .filter(Boolean)
           .join(', ')
-        return `- ${p.name}: PKR ${p.price.toLocaleString()}${disc} | ${p.category} | /product/${p.slug}${badges ? ` | ${badges}` : ''}`
+        return `- ${String(prod.name)}: PKR ${Number(prod.price).toLocaleString()}${disc} | ${String(prod.category)} | /product/${String(prod.slug)}${badges ? ` | ${badges}` : ''}`
       })
       .join('\n')
 
@@ -1280,8 +1286,8 @@ export async function POST(request: Request) {
             .filter((p) => p.inStock && p.category === hintedCategory)
             .sort(
               (a, b) =>
-                Number(Boolean((b as any).isBestSeller)) - Number(Boolean((a as any).isBestSeller)) ||
-                Number(Boolean((b as any).isNewDrop)) - Number(Boolean((a as any).isNewDrop))
+                Number(Boolean((b as Record<string, unknown>).isBestSeller)) - Number(Boolean((a as Record<string, unknown>).isBestSeller)) ||
+                Number(Boolean((b as Record<string, unknown>).isNewDrop)) - Number(Boolean((a as Record<string, unknown>).isNewDrop))
             )
             .slice(0, 4)
             .map(toClientProduct)
@@ -1412,8 +1418,8 @@ export async function POST(request: Request) {
             .filter((p) => p.inStock && p.category === hintedCategory)
             .sort(
               (a, b) =>
-                Number(Boolean((b as any).isBestSeller)) - Number(Boolean((a as any).isBestSeller)) ||
-                Number(Boolean((b as any).isNewDrop)) - Number(Boolean((a as any).isNewDrop))
+                Number(Boolean((b as Record<string, unknown>).isBestSeller)) - Number(Boolean((a as Record<string, unknown>).isBestSeller)) ||
+                Number(Boolean((b as Record<string, unknown>).isNewDrop)) - Number(Boolean((a as Record<string, unknown>).isNewDrop))
             )
             .slice(0, 4)
             .map(toClientProduct)

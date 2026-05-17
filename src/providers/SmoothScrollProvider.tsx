@@ -8,21 +8,19 @@ export default function SmoothScrollProvider({
 }: {
   children: React.ReactNode
 }) {
-  const [enabled, setEnabled] = useState(true)
-
-  useEffect(() => {
+  const [enabled] = useState<boolean>(() => {
     try {
+      if (typeof window === 'undefined') return true
       const prefersReduced = Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches)
       const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
       const isCoarsePointer = Boolean(window.matchMedia?.('(pointer: coarse)')?.matches)
       const isSmallScreen = Boolean(window.matchMedia?.('(max-width: 767px)')?.matches)
-
       // Lenis can cause jank/scroll bugs on mobile Safari; keep it desktop-only.
-      setEnabled(!(prefersReduced || isTouch || isCoarsePointer || isSmallScreen))
+      return !(prefersReduced || isTouch || isCoarsePointer || isSmallScreen)
     } catch {
-      setEnabled(false)
+      return false
     }
-  }, [])
+  })
 
   if (!enabled) return <>{children}</>
 

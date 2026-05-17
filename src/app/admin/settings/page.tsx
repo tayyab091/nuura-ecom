@@ -33,7 +33,7 @@ const DEFAULTS: Settings = {
   storeProvince: '',
   instagramUrl: '',
   tiktokUrl: '',
-  lowStockThreshold: 5,
+  lowStockThreshold: 10,
   currency: 'PKR',
   shippingFlatFee: 0,
   freeShippingThreshold: 0,
@@ -279,7 +279,7 @@ export default function AdminSettingsPage() {
                     <p className="font-sans text-sm text-n-ink">{label}</p>
                     <p className="font-sans text-xs text-n-muted mt-1">Enable this payment method at checkout.</p>
                   </div>
-                  <input type="checkbox" checked={Boolean(form[key])} onChange={(e) => field(key, e.target.checked as any)} />
+                  <input type="checkbox" checked={Boolean(form[key])} onChange={(e) => field(key, e.target.checked)} />
                 </label>
               ))}
             </div>

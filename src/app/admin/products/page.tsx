@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Image from 'next/image'
+import { usePathname, useRouter } from 'next/navigation'
 import { X, Plus, Edit2 } from 'lucide-react'
 import { formatPKR } from '@/lib/utils'
 
@@ -29,6 +30,7 @@ interface Product {
   tags: string[]
   inStock: boolean
   stockCount: number
+  lowStockThreshold?: number
   isFeatured: boolean
   isNewDrop: boolean
   isBestSeller: boolean
@@ -42,6 +44,7 @@ const BLANK_FORM = {
   comparePrice: '',
   category: 'self-care',
   stockCount: '',
+  lowStockThreshold: '10',
   tags: '',
   images: '',
   seoTitle: '',
@@ -81,6 +84,7 @@ type ProductPayload = {
   comparePrice?: number
   category: string
   stockCount: number
+  lowStockThreshold?: number
   tags: string[]
   images: string[]
   seo?: SeoPayload | null
@@ -110,6 +114,7 @@ function ProductModal({
           comparePrice: product.comparePrice ? String(product.comparePrice) : '',
           category: product.category,
           stockCount: String(product.stockCount),
+          lowStockThreshold: String(product.lowStockThreshold ?? 10),
           tags: product.tags.join(', '),
           images: product.images.join('\n'),
           seoTitle: product.seo?.title ?? '',
@@ -148,6 +153,7 @@ function ProductModal({
         comparePrice: form.comparePrice ? Number(form.comparePrice) : undefined,
         category: form.category,
         stockCount: Number(form.stockCount),
+        lowStockThreshold: Number(form.lowStockThreshold) || 10,
         tags: form.tags
           .split(',')
           .map((t) => t.trim())
@@ -223,11 +229,11 @@ function ProductModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto"
+      className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl mx-4 mt-16 mb-20 bg-n-cream border border-n-border p-8 relative"
+        className="w-full max-w-2xl bg-n-cream border border-n-border p-8 relative max-h-[90vh] overflow-hidden flex flex-col rounded-2xl shadow-[0_24px_80px_rgba(0,0,0,0.18)]"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -241,7 +247,7 @@ function ProductModal({
           {editing ? 'Edit Product' : 'Add Product'}
         </p>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 overflow-y-auto pr-1 flex-1">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <input
               className={inputCls}
@@ -305,6 +311,14 @@ function ProductModal({
               value={form.stockCount}
               onChange={(e) => field('stockCount', e.target.value)}
               required
+            />
+            <input
+              className={inputCls}
+              placeholder="Low stock threshold"
+              type="number"
+              min="0"
+              value={form.lowStockThreshold}
+              onChange={(e) => field('lowStockThreshold', e.target.value)}
             />
             <input
               className={inputCls}
@@ -441,9 +455,9 @@ function ProductModal({
   )
 }
 
-function StockBadge({ count }: { count: number }) {
+function StockBadge({ count, threshold = 10 }: { count: number; threshold?: number }) {
   if (count === 0) return <span className="text-red-600 font-sans text-xs">Out of Stock</span>
-  if (count <= 10)
+  if (count <= threshold)
     return (
       <span className="text-amber-600 font-sans text-xs">
         Low: {count}
@@ -453,6 +467,8 @@ function StockBadge({ count }: { count: number }) {
 }
 
 export default function AdminProductsPage() {
+  const router = useRouter()
+  const pathname = usePathname()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState<'add' | Product | null>(null)
@@ -474,9 +490,24 @@ export default function AdminProductsPage() {
     fetchProducts()
   }, [fetchProducts])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const editSlug = params.get('edit')
+    if (!editSlug || !products.length) return
+    const match = products.find((product) => product.slug === editSlug)
+    if (match) setModal(match)
+  }, [products])
+
+  function closeModal() {
+    setModal(null)
+    router.replace(pathname)
+  }
+
   function handleSaved() {
     setModal(null)
     fetchProducts()
+    router.replace(pathname)
   }
 
   return (
@@ -484,7 +515,7 @@ export default function AdminProductsPage() {
       {modal !== null && (
         <ProductModal
           product={modal === 'add' ? null : modal}
-          onClose={() => setModal(null)}
+          onClose={closeModal}
           onSaved={handleSaved}
         />
       )}
@@ -573,7 +604,7 @@ export default function AdminProductsPage() {
                     </td>
 
                     <td className="px-6 py-4">
-                      <StockBadge count={product.stockCount} />
+                      <StockBadge count={product.stockCount} threshold={product.lowStockThreshold ?? 10} />
                     </td>
 
                     <td className="px-6 py-4">
@@ -598,7 +629,10 @@ export default function AdminProductsPage() {
 
                     <td className="px-6 py-4">
                       <button
-                        onClick={() => setModal(product)}
+                        onClick={() => {
+                          setModal(product)
+                          router.replace(`${pathname}?edit=${product.slug}`)
+                        }}
                         className="text-n-muted hover:text-n-ink transition-colors"
                         title="Edit product"
                       >

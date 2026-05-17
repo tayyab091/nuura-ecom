@@ -69,15 +69,16 @@ export async function GET(request: Request) {
       profiles.map((p) => [String(p.email).toLowerCase(), p])
     )
 
-    const enriched = customers.map((c: any) => {
-      const p = profileByEmail.get(String(c.email).toLowerCase())
+    const enriched = customers.map((c) => {
+      const entry = c as Record<string, unknown>
+      const p = profileByEmail.get(String(entry.email).toLowerCase())
       return {
-        email: c.email,
-        name: c.name,
-        phone: c.phone,
-        lastOrderAt: c.lastOrderAt,
-        ordersCount: c.ordersCount,
-        totalSpent: c.totalSpent,
+        email: String(entry.email),
+        name: String(entry.name),
+        phone: String(entry.phone ?? ''),
+        lastOrderAt: entry.lastOrderAt,
+        ordersCount: Number(entry.ordersCount ?? 0),
+        totalSpent: Number(entry.totalSpent ?? 0),
         isVip: Boolean(p?.isVip),
         tags: Array.isArray(p?.tags) ? p.tags : [],
         notes: p?.notes ?? '',

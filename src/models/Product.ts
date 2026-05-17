@@ -23,6 +23,7 @@ export interface IProduct extends Document {
   tags: string[]
   inStock: boolean
   stockCount: number
+  lowStockThreshold?: number
   isFeatured: boolean
   isNewDrop: boolean
   isBestSeller: boolean
@@ -55,6 +56,7 @@ const ProductSchema = new Schema<IProduct>(
     tags: [{ type: String }],
     inStock: { type: Boolean, default: true },
     stockCount: { type: Number, default: 0, min: 0 },
+    lowStockThreshold: { type: Number, default: 10, min: 0 },
     isFeatured: { type: Boolean, default: false },
     isNewDrop: { type: Boolean, default: false },
     isBestSeller: { type: Boolean, default: false },

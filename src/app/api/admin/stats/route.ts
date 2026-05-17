@@ -26,7 +26,7 @@ function isoDate(d: Date) {
   }).format(d)
 }
 
-function fillDays<T extends Record<string, any>>(
+function fillDays<T extends Record<string, unknown>>(
   start: Date,
   days: number,
   rows: Array<T>,
@@ -34,8 +34,9 @@ function fillDays<T extends Record<string, any>>(
 ) {
   const map = new Map<string, number>()
   for (const r of rows) {
-    const date = (r as any).date
-    const v = Number((r as any)[key] ?? 0)
+    const obj = r as Record<string, unknown>
+    const date = obj.date
+    const v = Number(obj[key] ?? 0)
     if (typeof date === 'string') map.set(date, Number.isFinite(v) ? v : 0)
   }
 
@@ -45,7 +46,7 @@ function fillDays<T extends Record<string, any>>(
   cur.setHours(12, 0, 0, 0)
   for (let i = 0; i < days; i++) {
     const date = isoDate(cur)
-    out.push({ date, [key]: map.get(date) ?? 0 } as any)
+    out.push({ date, [key]: map.get(date) ?? 0 } as { date: string } & Record<typeof key, number>)
     cur.setDate(cur.getDate() + 1)
   }
   return out
@@ -59,7 +60,13 @@ export async function GET(request: Request) {
     await connectDB({ maxWaitMS: 8000 })
 
     const salesStatus = ['confirmed', 'shipped', 'delivered']
-    const revenueStart = daysAgo(13)
+    const url = new URL(request.url)
+    const daysParam = (url.searchParams.get('days') || '14').toLowerCase()
+    let windowDays = 14
+    if (daysParam === '7') windowDays = 7
+    else if (daysParam === '30') windowDays = 30
+    else if (daysParam === 'all') windowDays = 365
+    const revenueStart = daysAgo(windowDays - 1)
     const mixStart = daysAgo(29)
 
     const [

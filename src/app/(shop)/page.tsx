@@ -611,8 +611,18 @@ function FinalCTA() {
 }
 
 export default function HomePage() {
+  const base = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? 'http://localhost:3000'
+  const orgSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'Nuura',
+    url: base,
+    description: 'Premium self-care gadgets and aesthetic accessories for the modern Pakistani woman.',
+    sameAs: [],
+  }
   return (
     <main style={{ background:C.white, overflowX:'hidden' }}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(orgSchema) }} />
       <Hero />
       <Marquee bg={C.forest} color="rgba(245,240,230,0.4)" duration={55} />
       <StatsBar />

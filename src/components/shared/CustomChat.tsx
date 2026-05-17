@@ -285,7 +285,7 @@ export default function CustomChat() {
             <div style={{ padding: '1rem', borderTop: '1px solid #E8E0D8', backgroundColor: '#FAFAF8' }}>
               <div className="no-scrollbar" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>    
                 {QUICK_REPLIES.map(qr => (
-                  <button key={qr} onClick={() => { setInputValue(qr); setTimeout(() => handleSend({ preventDefault: () => {} } as any), 0); }}
+                  <button key={qr} onClick={() => { setInputValue(qr); setTimeout(() => handleSend({ preventDefault: () => {} } as unknown as React.FormEvent), 0); }}
                     style={{
                       whiteSpace: 'nowrap', padding: '0.4rem 0.8rem', borderRadius: '20px',
                       border: '1px solid #60A5FA', backgroundColor: 'transparent',

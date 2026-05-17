@@ -4,8 +4,15 @@ import { useEffect, useState } from 'react'
 import { motion, useSpring, useMotionValue } from 'framer-motion'
 
 export function CustomCursor() {
-  const [mounted, setMounted] = useState(false)
-  const [isTouch, setIsTouch] = useState(false)
+  const [mounted] = useState<boolean>(() => typeof window !== 'undefined')
+  const [isTouch] = useState<boolean>(() => {
+    try {
+      if (typeof window === 'undefined') return false
+      return 'ontouchstart' in window || navigator.maxTouchPoints > 0
+    } catch {
+      return false
+    }
+  })
   const [variant, setVariant] = useState<'default'|'hover'|'hidden'>('default')
 
   const mouseX = useMotionValue(0)
@@ -16,17 +23,22 @@ export function CustomCursor() {
   const ringY = useSpring(mouseY, { stiffness: 100, damping: 20 })
 
   useEffect(() => {
-    setMounted(true)
-    setIsTouch('ontouchstart' in window || navigator.maxTouchPoints > 0)
-    const move = (e: MouseEvent) => { mouseX.set(e.clientX); mouseY.set(e.clientY) }
+    if (typeof window === 'undefined' || isTouch) return
+    const move = (e: MouseEvent) => {
+      mouseX.set(e.clientX)
+      mouseY.set(e.clientY)
+    }
     const over = (e: MouseEvent) => {
       const t = (e.target as HTMLElement).closest('[data-cursor]') as HTMLElement | null
       setVariant((t?.dataset.cursor as 'default'|'hover'|'hidden') ?? 'default')
     }
     window.addEventListener('mousemove', move)
     window.addEventListener('mouseover', over)
-    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseover', over) }
-  }, [mouseX, mouseY])
+    return () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseover', over)
+    }
+  }, [mouseX, mouseY, isTouch])
 
   if (!mounted || isTouch) return null
 

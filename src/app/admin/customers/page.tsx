@@ -46,7 +46,6 @@ function CustomerModal({ email, onClose, onUpdated }: { email: string; onClose: 
   const [isVip, setIsVip] = useState(false)
 
   useEffect(() => {
-    setLoading(true)
     fetch(`/api/admin/customers/${encodeURIComponent(email)}`)
       .then((r) => r.json())
       .then((d) => {
@@ -193,7 +192,6 @@ export default function AdminCustomersPage() {
   const totalPages = Math.ceil(total / pageSize)
 
   useEffect(() => {
-    setLoading(true)
     const url = `/api/admin/customers?q=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}`
     fetch(url)
       .then((r) => r.json())

@@ -15,7 +15,7 @@ export function middleware(request: NextRequest) {
     if (pathname === '/admin/login') return NextResponse.next()
     if (!isAdminAuthed(request)) {
       const url = request.nextUrl.clone()
-      url.pathname = '/admin/login'
+      url.pathname = '/unauthorized'
       url.search = ''
       return NextResponse.redirect(url)
     }

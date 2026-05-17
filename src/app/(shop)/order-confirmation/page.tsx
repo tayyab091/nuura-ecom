@@ -82,11 +82,7 @@ function OrderConfirmationContent() {
   const orderNumber = searchParams.get('order')
   const method = searchParams.get('method') || 'cod'
   const isCOD = method === 'cod'
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const [mounted] = useState<boolean>(() => typeof window !== 'undefined')
 
   if (!mounted) return <div style={{ minHeight: '50vh' }} />
 

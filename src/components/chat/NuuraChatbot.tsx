@@ -130,15 +130,56 @@ const QUICK_REPLIES = [
 
 export function NuuraChatbot() {
   const [open, setOpen] = useState(false)
-  const [msgs, setMsgs] = useState<Msg[]>([])
+  const [msgs, setMsgs] = useState<Msg[]>(() => {
+    try {
+      if (typeof window === 'undefined') return []
+      const raw = sessionStorage.getItem(CHAT_STORAGE_KEY)
+      if (!raw) return []
+      const parsed = JSON.parse(raw) as { msgs?: unknown }
+      const restoredMsgs: Msg[] = Array.isArray(parsed.msgs)
+        ? (parsed.msgs as unknown[]).map(safeMsgFromStorage).filter(Boolean) as Msg[]
+        : []
+      return restoredMsgs
+    } catch {
+      return []
+    }
+  })
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [cartBump, setCartBump] = useState(false)
-  const [showReplies, setShowReplies] = useState(true)
+  const [showReplies, setShowReplies] = useState<boolean>(() => {
+    try {
+      if (typeof window === 'undefined') return true
+      const raw = sessionStorage.getItem(CHAT_STORAGE_KEY)
+      if (!raw) return true
+      const parsed = JSON.parse(raw) as { showReplies?: unknown }
+      return typeof parsed.showReplies === 'boolean' ? parsed.showReplies : true
+    } catch {
+      return true
+    }
+  })
   const [suggestions, setSuggestions] = useState<string[]>(QUICK_REPLIES.map(q => q.msg))
   const [conversationHistory, setConversationHistory] = useState<
     Array<{ role: 'user' | 'assistant'; content: string }>
-  >([])
+  >(() => {
+    try {
+      if (typeof window === 'undefined') return []
+      const raw = sessionStorage.getItem(CHAT_STORAGE_KEY)
+      if (!raw) return []
+      const parsed = JSON.parse(raw) as { history?: unknown }
+      const restoredHistory: Array<{ role: 'user' | 'assistant'; content: string }> = Array.isArray(parsed.history)
+        ? (parsed.history as Array<{ role?: unknown; content?: unknown }>).flatMap((h) => {
+            const role = h?.role
+            const content = cleanDisplayText(h?.content)
+            if ((role !== 'user' && role !== 'assistant') || !content || looksCorruptedText(content)) return []
+            return [{ role: role as 'user' | 'assistant', content }]
+          })
+        : []
+      return restoredHistory
+    } catch {
+      return []
+    }
+  })
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const apiCooldownUntilRef = useRef<number>(0)
@@ -149,48 +190,7 @@ export function NuuraChatbot() {
 
   const cartStore = useCartStore()
 
-  // Restore chat history across route changes/reloads.
-  useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(CHAT_STORAGE_KEY)
-      if (!raw) return
-      const parsed = JSON.parse(raw) as {
-        msgs?: unknown
-        history?: unknown
-        showReplies?: unknown
-      }
-
-      const restoredMsgs: Msg[] = Array.isArray(parsed.msgs)
-        ? (parsed.msgs as unknown[])
-            .map(safeMsgFromStorage)
-            .filter(Boolean) as Msg[]
-        : []
-
-      const restoredHistory: Array<{ role: 'user' | 'assistant'; content: string }> = Array.isArray(parsed.history)
-        ? (parsed.history as Array<{ role?: unknown; content?: unknown }>).flatMap((h) => {
-            const role = h?.role
-            const content = cleanDisplayText(h?.content)
-            if ((role !== 'user' && role !== 'assistant') || !content || looksCorruptedText(content)) return []
-            return [{ role: role as 'user' | 'assistant', content }]
-          })
-        : []
-
-      if (restoredMsgs.length > 0) setMsgs(restoredMsgs)
-      if (restoredHistory.length > 0) setConversationHistory(restoredHistory)
-      if (typeof parsed.showReplies === 'boolean') setShowReplies(parsed.showReplies)
-
-      // If storage payload looks bad (e.g. everything got filtered), reset it.
-      if (Array.isArray(parsed.msgs) && restoredMsgs.length === 0) {
-        sessionStorage.removeItem(CHAT_STORAGE_KEY)
-      }
-    } catch {
-      try {
-        sessionStorage.removeItem(CHAT_STORAGE_KEY)
-      } catch {
-        // ignore
-      }
-    }
-  }, [])
+  // chat state is hydrated via lazy initializers above
 
   useEffect(() => {
     try {
@@ -209,14 +209,18 @@ export function NuuraChatbot() {
 
   useEffect(() => {
     if (open && msgs.length === 0) {
-      setMsgs([{
-        id: 'init',
-        role: 'bot',
-        text: "Hi! I'm Noor, your Nuura beauty assistant ✨\n\nI can search products, recommend based on your cart/views, track your order, and help with checkout. What would you like?",
-        type: 'replies',
-        replies: ['Show all products','Show best sellers','Track my order','View cart'],
-        isAI: false,
-      }])
+      setTimeout(() => {
+        setMsgs([
+          {
+            id: 'init',
+            role: 'bot',
+            text: "Hi! I'm Noor, your Nuura beauty assistant ✨\n\nI can search products, recommend based on your cart/views, track your order, and help with checkout. What would you like?",
+            type: 'replies',
+            replies: ['Show all products','Show best sellers','Track my order','View cart'],
+            isAI: false,
+          },
+        ])
+      }, 0)
     }
     if (open) setTimeout(() => inputRef.current?.focus(), 300)
   }, [open])

@@ -3,9 +3,10 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'framer-motion'
-import { ShoppingBag, Search, X, Menu } from 'lucide-react'
+import { ShoppingBag, Search, X, Menu, LogIn } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { useCartStore } from '@/store/cartStore'
+import { useAuth } from '@/components/auth/AuthProvider'
 
 const NAV_LINKS = [
   { href: '/shop', label: 'Shop' },
@@ -21,6 +22,7 @@ export default function Navbar() {
   const { scrollY } = useScroll()
   const totalItems = useCartStore(s => s.totalItems())
   const openCart = useCartStore(s => s.openCart)
+  const { openAuthModal, session } = useAuth()
 
   useMotionValueEvent(scrollY, 'change', v => setScrolled(v > 60))
   useEffect(() => {
@@ -29,9 +31,11 @@ export default function Navbar() {
   }, [menuOpen])
 
   const textColor = !scrolled ? '#F5F0E6' : '#F5F0E6' /* Since everything is dark now, always cream text */
-  const bg = scrolled ? 'rgba(27,46,31,0.95)' : 'transparent'
-  const blur = scrolled ? 'blur(16px)' : 'none'
-  const border = scrolled ? '1px solid rgba(245,240,230,0.1)' : '1px solid transparent'
+  const bg = scrolled
+    ? 'rgba(27,46,31,0.95)'
+    : 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.28) 68%, rgba(0,0,0,0) 100%)'
+  const blur = 'blur(14px)'
+  const border = scrolled ? '1px solid rgba(245,240,230,0.1)' : '1px solid rgba(0,0,0,0.06)'
 
   return (
     <>
@@ -39,7 +43,7 @@ export default function Navbar() {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, height: '72px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 clamp(1rem,6vw,5rem)', backgroundColor: bg, backdropFilter: blur, borderBottom: border, transition: 'all 350ms ease' }}
+        style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, height: '72px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 clamp(1rem,6vw,5rem)', background: bg, backdropFilter: blur, borderBottom: border, boxShadow: scrolled ? '0 10px 40px rgba(0,0,0,0.18)' : '0 8px 24px rgba(0,0,0,0.12)', transition: 'all 350ms ease' }}
       >
         <div className="flex md:hidden items-center" style={{ width: '80px' }}> 
           <button onClick={() => setMenuOpen(true)} style={{ padding: '0.5rem', color: textColor, background: 'transparent', border: 0, marginLeft: '-0.5rem' }}><Menu size={20} strokeWidth={1} /></button>
@@ -65,8 +69,14 @@ export default function Navbar() {
           })}
         </nav>
 
-<div className="flex items-center justify-end" style={{ gap: '0.25rem', width: '80px' }}> 
+<div className="flex items-center justify-end" style={{ gap: '0.5rem', width: 'auto', minWidth: '120px' }}> 
           {[
+            <button key="auth" onClick={() => openAuthModal('login')} style={{ padding: '0.5rem', color: textColor, background: 'transparent', border: 0, transition: 'color 300ms', display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }} data-cursor="hover" aria-label="Login or sign up" onMouseEnter={e => { e.currentTarget.style.color = '#D4A853' }} onMouseLeave={e => { e.currentTarget.style.color = textColor }}>
+              <LogIn size={18} strokeWidth={1} />
+              <span className="hidden lg:inline" style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
+                {session?.role === 'admin' ? 'Admin' : 'Login / Sign Up'}
+              </span>
+            </button>,
             <button className="hidden md:block" key="search" style={{ padding: '0.5rem', color: textColor, background: 'transparent', border: 0, transition: 'color 300ms' }} data-cursor="hover" aria-label="Search" onMouseEnter={e => { e.currentTarget.style.color = '#D4A853' }} onMouseLeave={e => { e.currentTarget.style.color = textColor }}><Search size={18} strokeWidth={1} /></button>,
             <button key="cart" onClick={openCart} style={{ position: 'relative', padding: '0.5rem', color: textColor, background: 'transparent', border: 0, transition: 'color 300ms', marginRight: '-0.5rem' }} data-cursor="hover" aria-label="Cart" onMouseEnter={e => { e.currentTarget.style.color = '#D4A853' }} onMouseLeave={e => { e.currentTarget.style.color = textColor }}>
               <ShoppingBag size={18} strokeWidth={1} />
@@ -105,6 +115,17 @@ export default function Navbar() {
               ))}
             </nav>
             <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(245,240,230,0.3)' }}>Glow in your own light</p>
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false)
+                openAuthModal('login')
+              }}
+              className="mt-6 inline-flex items-center justify-center gap-2 border border-n-cream/15 px-4 py-3 font-sans text-[10px] tracking-[0.22em] uppercase text-n-cream"
+            >
+              <LogIn size={14} strokeWidth={1.5} />
+              Login / Sign Up
+            </button>
           </motion.div>
         )}
       </AnimatePresence>

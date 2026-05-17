@@ -101,10 +101,10 @@ export async function POST(request: Request) {
         role: 'system',
         content: `${NUURA_SYSTEM_PROMPT}${catalogText}`,
       },
-      ...formattedMessages.map((m: any) => ({
-        role: m?.role === 'assistant' ? 'assistant' : 'user',
-        content: String(m?.content ?? ''),
-      })),
+      ...formattedMessages.map((m) => ({
+          role: m?.role === 'assistant' ? 'assistant' : 'user',
+          content: String((m as Record<string, unknown>)?.content ?? ''),
+        })),
     ]
 
     console.log('Calling Hugging Face Router (chat completions)...')

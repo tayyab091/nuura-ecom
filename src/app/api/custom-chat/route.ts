@@ -10,6 +10,7 @@ type Action =
   | { type: 'CLEAR_CART' }
   | { type: 'APPLY_COUPON'; code: string }
   | { type: 'ADD_TO_CART'; product: any }
+  | { type: 'ADD_TO_CART'; product: unknown }
   | { type: 'REMOVE_FROM_CART'; productId?: string; query?: string }
 
 type ApiPayload = {
@@ -41,26 +42,27 @@ function safeNumber(n: unknown) {
   return Number.isFinite(num) ? num : 0
 }
 
-function toClientProduct(p: any) {
+function toClientProduct(p: unknown) {
+  const obj = (p ?? {}) as Record<string, unknown>
   // Ensure the returned shape is compatible with the client cart store.
   return {
-    _id: String(p?._id ?? p?.id ?? ''),
-    slug: p?.slug ?? '',
-    name: p?.name ?? '',
-    tagline: p?.tagline ?? '',
-    description: p?.description ?? '',
-    price: safeNumber(p?.price),
-    comparePrice: p?.comparePrice ?? null,
-    images: Array.isArray(p?.images) ? p.images : [],
-    category: p?.category ?? 'self-care',
-    tags: Array.isArray(p?.tags) ? p.tags : [],
-    inStock: Boolean(p?.inStock ?? true),
-    stockCount: safeNumber(p?.stockCount ?? 0),
-    isFeatured: Boolean(p?.isFeatured ?? false),
-    isNewDrop: Boolean(p?.isNewDrop ?? false),
-    isBestSeller: Boolean(p?.isBestSeller ?? false),
-    createdAt: p?.createdAt ?? new Date().toISOString(),
-    updatedAt: p?.updatedAt ?? new Date().toISOString(),
+    _id: String(obj._id ?? obj.id ?? ''),
+    slug: String(obj.slug ?? ''),
+    name: String(obj.name ?? ''),
+    tagline: String(obj.tagline ?? ''),
+    description: String(obj.description ?? ''),
+    price: safeNumber(obj.price),
+    comparePrice: obj.comparePrice as unknown as number | null,
+    images: Array.isArray(obj.images) ? (obj.images as unknown[]).map(String) : [],
+    category: String(obj.category ?? 'self-care'),
+    tags: Array.isArray(obj.tags) ? (obj.tags as unknown[]).map(String) : [],
+    inStock: Boolean(obj.inStock ?? true),
+    stockCount: safeNumber(obj.stockCount ?? 0),
+    isFeatured: Boolean(obj.isFeatured ?? false),
+    isNewDrop: Boolean(obj.isNewDrop ?? false),
+    isBestSeller: Boolean(obj.isBestSeller ?? false),
+    createdAt: String(obj.createdAt ?? new Date().toISOString()),
+    updatedAt: String(obj.updatedAt ?? new Date().toISOString()),
   }
 }
 
@@ -349,10 +351,11 @@ export async function POST(req: Request) {
         })
       }
 
-      const timeline = formatOrderTimeline(String((order as any).orderStatus))
+      const ord = order as unknown as Record<string, unknown>
+      const timeline = formatOrderTimeline(String(ord.orderStatus))
       return jsonResponse({
         response:
-          `Tracking for ${orderNumber}\n\n${timeline}\n\nTotal: PKR ${(order as any).total} | Payment: ${(order as any).paymentStatus}`,
+          `Tracking for ${orderNumber}\n\n${timeline}\n\nTotal: PKR ${ord.total} | Payment: ${ord.paymentStatus}`,
         suggestions,
       })
     }

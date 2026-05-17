@@ -80,7 +80,7 @@ export default function ProductInfo({ product }: ProductInfoProps) {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         {product.inStock ? (
-          product.stockCount > 10 ? (
+          product.stockCount > (product.lowStockThreshold ?? 10) ? (
              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#6B9E7A' }}>In Stock</span>
           ) : (
             <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#D4A853' }}>Only {product.stockCount} left</span>

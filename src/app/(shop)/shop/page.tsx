@@ -1,4 +1,5 @@
 ﻿import { Suspense } from 'react'
+import type { Product } from '@/types'
 import ShopClient from '@/components/shop/ShopClient'
 import { MOCK_PRODUCTS } from '@/lib/mockData'
 import { connectDB } from '@/lib/mongodb'
@@ -41,9 +42,25 @@ export default async function ShopPage() {
         })(),
         2500
       )
-      return Array.isArray(products) && products.length > 0 ? (products as any) : (MOCK_PRODUCTS as any)
+      if (Array.isArray(products) && products.length > 0) {
+        const mapped = products.map((p) => {
+          const rec = p as unknown as Record<string, unknown>
+          return {
+            ...rec,
+            _id: String(rec._id ?? rec.id ?? ''),
+            images: Array.isArray(rec.images) ? (rec.images as unknown[]).map(String) : [],
+            tags: Array.isArray(rec.tags) ? (rec.tags as unknown[]).map(String) : [],
+            price: Number(rec.price ?? 0),
+            comparePrice: rec.comparePrice ?? null,
+            inStock: Boolean(rec.inStock ?? true),
+            stockCount: Number(rec.stockCount ?? 0),
+          } as unknown as Product
+        })
+        return mapped
+      }
+      return MOCK_PRODUCTS as Product[]
     } catch {
-      return MOCK_PRODUCTS as any
+      return MOCK_PRODUCTS as Product[]
     }
   }
 
@@ -100,7 +117,7 @@ export default async function ShopPage() {
           Loading products...
         </div>
       }>
-        <ShopClient initialProducts={initialProducts as any} />
+        <ShopClient initialProducts={initialProducts as Product[]} />
       </Suspense>
     </div>
   )

@@ -16,6 +16,7 @@ const ProductSchema = new mongoose.Schema({
   tags: [String],
   inStock: { type: Boolean, default: true },
   stockCount: Number,
+  lowStockThreshold: Number,
   isFeatured: Boolean,
   isNewDrop: Boolean,
   isBestSeller: Boolean,
@@ -38,6 +39,7 @@ const PRODUCTS = [
     category: 'self-care',
     tags: ['gua-sha', 'rose-quartz', 'facial', 'sculpt'],
     inStock: true, stockCount: 45,
+    lowStockThreshold: 10,
     isFeatured: true, isNewDrop: true, isBestSeller: false,
   },
   {
@@ -53,6 +55,7 @@ const PRODUCTS = [
     category: 'self-care',
     tags: ['mirror', 'led', 'makeup', 'vanity'],
     inStock: true, stockCount: 23,
+    lowStockThreshold: 10,
     isFeatured: true, isNewDrop: false, isBestSeller: true,
   },
   {
@@ -68,6 +71,7 @@ const PRODUCTS = [
     category: 'accessories',
     tags: ['bag', 'crossbody', 'chain', 'quilted'],
     inStock: true, stockCount: 18,
+    lowStockThreshold: 10,
     isFeatured: true, isNewDrop: true, isBestSeller: false,
   },
   {
@@ -83,6 +87,7 @@ const PRODUCTS = [
     category: 'self-care',
     tags: ['jade', 'roller', 'facial', 'massage'],
     inStock: true, stockCount: 60,
+    lowStockThreshold: 10,
     isFeatured: false, isNewDrop: false, isBestSeller: true,
   },
   {
@@ -98,6 +103,7 @@ const PRODUCTS = [
     category: 'accessories',
     tags: ['clutch', 'acrylic', 'transparent', 'evening'],
     inStock: true, stockCount: 12,
+    lowStockThreshold: 10,
     isFeatured: false, isNewDrop: true, isBestSeller: false,
   },
   {
@@ -113,6 +119,7 @@ const PRODUCTS = [
     category: 'self-care',
     tags: ['steamer', 'facial', 'pores', 'hydration'],
     inStock: true, stockCount: 35,
+    lowStockThreshold: 10,
     isFeatured: false, isNewDrop: false, isBestSeller: false,
   },
 ]

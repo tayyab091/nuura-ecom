@@ -22,6 +22,7 @@ export interface Product {
   tags: string[]
   inStock: boolean
   stockCount: number
+  lowStockThreshold?: number
   isFeatured: boolean
   isNewDrop: boolean
   isBestSeller: boolean
