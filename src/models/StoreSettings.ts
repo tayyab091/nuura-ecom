@@ -49,8 +49,6 @@ const StoreSettingsSchema = new Schema<IStoreSettings>(
   { timestamps: true }
 )
 
-StoreSettingsSchema.index({ key: 1 })
-
 const StoreSettings: Model<IStoreSettings> =
   mongoose.models.StoreSettings ??
   mongoose.model<IStoreSettings>('StoreSettings', StoreSettingsSchema)

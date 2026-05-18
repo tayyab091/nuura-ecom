@@ -90,7 +90,6 @@ const OrderSchema = new Schema<IOrder>(
   { timestamps: true }
 )
 
-OrderSchema.index({ orderNumber: 1 })
 OrderSchema.index({ 'customer.email': 1 })
 OrderSchema.index({ orderStatus: 1 })
 
