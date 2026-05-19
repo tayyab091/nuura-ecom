@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { LayoutDashboard, ShoppingBag, Package, Users, Settings, LogOut, Bell, AlertTriangle, Send, X } from 'lucide-react'
+import { LayoutDashboard, ShoppingBag, Package, Users, Settings, LogOut, Bell, AlertTriangle, Send, X, ExternalLink } from 'lucide-react'
 import AdminChatWidget from './AdminChatWidget'
 import { useAuth } from '@/components/auth/AuthProvider'
 
@@ -158,18 +158,27 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       <div className="md:grid md:grid-cols-[260px_1fr]">
         <aside className="hidden md:flex md:flex-col bg-n-card border-r border-n-border min-h-screen sticky top-0">
           <div className="px-6 py-6 border-b border-n-border">
-            <div className="flex items-center justify-between gap-3">
-              <Link href="/admin" className="no-underline">
-                <div className="leading-none">
-                  <p className="[font-family:var(--font-accent)] text-[20px] tracking-[0.45em] text-n-ink">
-                    NUURA
-                  </p>
-                  <p className="font-sans text-[11px] tracking-[0.16em] uppercase text-n-muted mt-2">
-                    Admin Panel
-                  </p>
-                </div>
-              </Link>
-              <div className="flex items-center gap-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <Link href="/admin" className="no-underline">
+                  <div className="leading-none">
+                    <p className="[font-family:var(--font-accent)] text-[20px] tracking-[0.45em] text-n-ink">
+                      NUURA
+                    </p>
+                    <p className="font-sans text-[11px] tracking-[0.16em] uppercase text-n-muted mt-2">
+                      Admin Panel
+                    </p>
+                  </div>
+                </Link>
+                <Link
+                  href="/"
+                  className="mt-4 inline-flex items-center gap-2 rounded-full border border-n-border bg-n-cream px-3 py-2 font-sans text-[10px] tracking-[0.18em] uppercase text-n-ink no-underline hover:bg-n-forest hover:text-n-cream hover:border-n-forest transition-colors"
+                >
+                  <ExternalLink size={14} strokeWidth={1.5} />
+                  Go To Shop
+                </Link>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
                 <div className="relative">
                   <button type="button" onClick={() => setBellOpen((s) => !s)} aria-label="Inventory alerts" className="relative">
                     <Bell size={18} strokeWidth={1.7} className={hasAlerts ? 'text-red-600 nuura-bell-ring' : 'text-n-muted'} />
@@ -293,6 +302,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           )}
 
           <div className="px-4 pb-6 pt-3 border-t border-n-border">
+            <Link href="/" className="w-full flex items-center gap-3 px-3 py-2.5 font-sans text-sm text-n-muted hover:text-n-ink bg-transparent border border-transparent hover:bg-n-cream/60 hover:border-n-border no-underline">
+              <ExternalLink size={14} strokeWidth={1.5} className="text-n-muted" />
+              <span>View Shop</span>
+            </Link>
+
             <button
               type="button"
               onClick={signOut}
@@ -314,6 +328,13 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                 </p>
               </Link>
               <div className="flex items-center gap-3">
+                <Link
+                  href="/"
+                  className="inline-flex items-center gap-2 rounded-full border border-n-border bg-n-cream px-3 py-2 font-sans text-[9px] tracking-[0.16em] uppercase text-n-ink no-underline hover:bg-n-forest hover:text-n-cream transition-colors"
+                >
+                  <ExternalLink size={13} strokeWidth={1.5} />
+                  Shop
+                </Link>
                 <div className="relative">
                   <Bell size={16} strokeWidth={1.7} className={hasAlerts ? 'text-red-600' : 'text-n-muted'} />
                   {hasAlerts && (

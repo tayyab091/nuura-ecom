@@ -1,9 +1,10 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
-import { X, Plus, Edit2 } from 'lucide-react'
+import { X, Plus, Edit2, Sparkles, ExternalLink } from 'lucide-react'
 import { formatPKR } from '@/lib/utils'
 
 interface Product {
@@ -135,6 +136,7 @@ function ProductModal({
   )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [generatingSEO, setGeneratingSEO] = useState(false)
 
   function field(key: keyof FormState, value: string | boolean) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -224,6 +226,41 @@ function ProductModal({
     }
   }
 
+  async function handleGenerateSEO() {
+    if (!form.name || !form.description) return
+    setGeneratingSEO(true)
+    try {
+      const res = await fetch('/api/generate-seo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          description: form.description,
+          category: form.category,
+          tags: form.tags,
+          price: form.price,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error ?? 'AI generation failed')
+        return
+      }
+      setForm((prev) => ({
+        ...prev,
+        seoTitle: data.seoTitle ?? prev.seoTitle,
+        seoDescription: data.seoDescription ?? prev.seoDescription,
+        seoKeywords: data.seoKeywords ?? prev.seoKeywords,
+        ogTitle: data.ogTitle ?? prev.ogTitle,
+        ogDescription: data.ogDescription ?? prev.ogDescription,
+      }))
+    } catch {
+      setError('Failed to generate SEO. Check your connection.')
+    } finally {
+      setGeneratingSEO(false)
+    }
+  }
+
   const inputCls =
     'bg-n-white border border-n-border text-n-ink placeholder-n-muted/70 px-4 py-2.5 w-full focus:outline-none focus:border-n-forest font-sans text-sm transition-colors'
 
@@ -233,222 +270,244 @@ function ProductModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl bg-n-cream border border-n-border p-8 relative max-h-[90vh] overflow-hidden flex flex-col rounded-2xl shadow-[0_24px_80px_rgba(0,0,0,0.18)]"
+        className="w-full max-w-3xl h-[90vh] max-h-[90vh] min-h-0 overflow-x-hidden overflow-y-hidden flex flex-col rounded-[28px] border border-n-border bg-[linear-gradient(180deg,rgba(247,242,232,0.96),rgba(255,255,255,0.92))] shadow-[0_24px_80px_rgba(0,0,0,0.18)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-n-muted hover:text-n-ink transition-colors"
-        >
-          <X size={18} strokeWidth={1.5} />
-        </button>
-
-        <p className="font-sans text-base text-n-ink mb-6">
-          {editing ? 'Edit Product' : 'Add Product'}
-        </p>
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 overflow-y-auto pr-1 flex-1">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <input
-              className={inputCls}
-              placeholder="Product name *"
-              value={form.name}
-              onChange={(e) => field('name', e.target.value)}
-              required
-            />
-            <input
-              className={inputCls}
-              placeholder="Tagline *"
-              value={form.tagline}
-              onChange={(e) => field('tagline', e.target.value)}
-              required
-            />
-          </div>
-
-          <textarea
-            className={inputCls + ' resize-none'}
-            placeholder="Description *"
-            rows={3}
-            value={form.description}
-            onChange={(e) => field('description', e.target.value)}
-            required
-          />
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <input
-              className={inputCls}
-              placeholder="Price (PKR) *"
-              type="number"
-              min="0"
-              value={form.price}
-              onChange={(e) => field('price', e.target.value)}
-              required
-            />
-            <input
-              className={inputCls}
-              placeholder="Compare Price"
-              type="number"
-              min="0"
-              value={form.comparePrice}
-              onChange={(e) => field('comparePrice', e.target.value)}
-            />
-            <select
-              className={inputCls}
-              value={form.category}
-              onChange={(e) => field('category', e.target.value)}
-            >
-              <option value="self-care">Self-Care</option>
-              <option value="accessories">Accessories</option>
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <input
-              className={inputCls}
-              placeholder="Stock Count *"
-              type="number"
-              min="0"
-              value={form.stockCount}
-              onChange={(e) => field('stockCount', e.target.value)}
-              required
-            />
-            <input
-              className={inputCls}
-              placeholder="Low stock threshold"
-              type="number"
-              min="0"
-              value={form.lowStockThreshold}
-              onChange={(e) => field('lowStockThreshold', e.target.value)}
-            />
-            <input
-              className={inputCls}
-              placeholder="Tags (comma separated)"
-              value={form.tags}
-              onChange={(e) => field('tags', e.target.value)}
-            />
-          </div>
-
+        <div className="flex items-center justify-between gap-4 border-b border-n-border/80 px-6 sm:px-8 py-5 bg-white/50 backdrop-blur-sm">
           <div>
-            <textarea
-              className={inputCls + ' resize-none'}
-              placeholder="Image URLs (one per line)"
-              rows={3}
-              value={form.images}
-              onChange={(e) => field('images', e.target.value)}
-            />
-          </div>
-
-          <div className="pt-3 mt-2 border-t border-n-border">
-            <p className="font-sans text-[10px] tracking-widest uppercase text-n-muted mb-3">
-              SEO / Meta
+            <p className="font-sans text-[10px] tracking-[0.24em] uppercase text-n-muted">Product Studio</p>
+            <p className="font-sans text-lg text-n-ink mt-2">
+              {editing ? 'Edit Product' : 'Add Product'}
             </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <input
-                className={inputCls}
-                placeholder="Meta Title"
-                value={form.seoTitle}
-                onChange={(e) => field('seoTitle', e.target.value)}
-              />
-              <input
-                className={inputCls}
-                placeholder="Canonical URL"
-                value={form.canonicalUrl}
-                onChange={(e) => field('canonicalUrl', e.target.value)}
-              />
-            </div>
-
-            <textarea
-              className={inputCls + ' resize-none mt-4'}
-              placeholder="Meta Description"
-              rows={3}
-              value={form.seoDescription}
-              onChange={(e) => field('seoDescription', e.target.value)}
-            />
-
-            <input
-              className={inputCls + ' mt-4'}
-              placeholder="Meta Keywords (comma separated)"
-              value={form.seoKeywords}
-              onChange={(e) => field('seoKeywords', e.target.value)}
-            />
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-              <input
-                className={inputCls}
-                placeholder="OG Title"
-                value={form.ogTitle}
-                onChange={(e) => field('ogTitle', e.target.value)}
-              />
-              <input
-                className={inputCls}
-                placeholder="OG Image URL"
-                value={form.ogImage}
-                onChange={(e) => field('ogImage', e.target.value)}
-              />
-            </div>
-
-            <textarea
-              className={inputCls + ' resize-none mt-4'}
-              placeholder="OG Description"
-              rows={3}
-              value={form.ogDescription}
-              onChange={(e) => field('ogDescription', e.target.value)}
-            />
-
-            <div className="flex flex-wrap gap-6 mt-4">
-              {(
-                [
-                  { key: 'noIndex', label: 'No Index' },
-                  { key: 'noFollow', label: 'No Follow' },
-                ] as { key: keyof FormState; label: string }[]
-              ).map(({ key, label }) => (
-                <label key={key} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={form[key] as boolean}
-                    onChange={(e) => field(key, e.target.checked)}
-                    className="accent-n-forest w-4 h-4"
-                  />
-                  <span className="font-sans text-xs text-n-muted">{label}</span>
-                </label>
-              ))}
-            </div>
           </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {(
-              [
-                { key: 'isFeatured', label: 'Featured' },
-                { key: 'isNewDrop', label: 'New Drop' },
-                { key: 'isBestSeller', label: 'Best Seller' },
-                { key: 'inStock', label: 'In Stock' },
-              ] as { key: keyof FormState; label: string }[]
-            ).map(({ key, label }) => (
-              <label
-                key={key}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={form[key] as boolean}
-                  onChange={(e) => field(key, e.target.checked)}
-                  className="accent-n-forest w-4 h-4"
-                />
-                <span className="font-sans text-xs text-n-muted">{label}</span>
-              </label>
-            ))}
-          </div>
-
-          {error && <p className="text-red-600 font-sans text-xs">{error}</p>}
-
           <button
-            type="submit"
-            disabled={saving}
-            className="bg-n-forest text-n-cream w-full py-3 font-sans text-xs tracking-widest uppercase hover:bg-n-gold hover:text-n-forest transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-2"
+            onClick={onClose}
+            className="inline-flex items-center justify-center size-10 rounded-full border border-n-border bg-n-white text-n-muted hover:text-n-ink hover:border-n-forest transition-colors"
           >
-            {saving ? 'Saving...' : editing ? 'Save Changes' : 'Add Product'}
+            <X size={18} strokeWidth={1.5} />
           </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-8 py-6 pr-4 sm:pr-6 pb-6 flex flex-col gap-6">
+            <section className="rounded-2xl border border-n-border bg-white/70 p-4 sm:p-5 shadow-[0_10px_30px_rgba(27,46,31,0.04)]">
+              <p className="font-sans text-[10px] tracking-[0.22em] uppercase text-n-muted mb-4">Core Details</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input
+                  className={inputCls}
+                  placeholder="Product name *"
+                  value={form.name}
+                  onChange={(e) => field('name', e.target.value)}
+                  required
+                />
+                <input
+                  className={inputCls}
+                  placeholder="Tagline *"
+                  value={form.tagline}
+                  onChange={(e) => field('tagline', e.target.value)}
+                  required
+                />
+              </div>
+
+              <textarea
+                className={inputCls + ' resize-none mt-4'}
+                placeholder="Description *"
+                rows={4}
+                value={form.description}
+                onChange={(e) => field('description', e.target.value)}
+                required
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                <input
+                  className={inputCls}
+                  placeholder="Price (PKR) *"
+                  type="number"
+                  min="0"
+                  value={form.price}
+                  onChange={(e) => field('price', e.target.value)}
+                  required
+                />
+                <input
+                  className={inputCls}
+                  placeholder="Compare Price"
+                  type="number"
+                  min="0"
+                  value={form.comparePrice}
+                  onChange={(e) => field('comparePrice', e.target.value)}
+                />
+                <select
+                  className={inputCls}
+                  value={form.category}
+                  onChange={(e) => field('category', e.target.value)}
+                >
+                  <option value="self-care">Self-Care</option>
+                  <option value="accessories">Accessories</option>
+                </select>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-n-border bg-white/70 p-4 sm:p-5 shadow-[0_10px_30px_rgba(27,46,31,0.04)]">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <p className="font-sans text-[10px] tracking-[0.22em] uppercase text-n-muted">SEO / Meta</p>
+                <button
+                  type="button"
+                  onClick={handleGenerateSEO}
+                  disabled={generatingSEO || !form.name || !form.description}
+                  className="inline-flex items-center gap-2 rounded-full bg-n-forest/10 border border-n-forest/30 text-n-forest px-4 py-2 font-sans text-xs tracking-widest uppercase hover:bg-n-forest hover:text-n-cream transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Sparkles size={14} strokeWidth={1.5} />
+                  {generatingSEO ? 'Generating...' : 'Generate with AI'}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input
+                  className={inputCls}
+                  placeholder="Meta Title"
+                  value={form.seoTitle}
+                  onChange={(e) => field('seoTitle', e.target.value)}
+                />
+                <input
+                  className={inputCls}
+                  placeholder="Canonical URL"
+                  value={form.canonicalUrl}
+                  onChange={(e) => field('canonicalUrl', e.target.value)}
+                />
+              </div>
+
+              <textarea
+                className={inputCls + ' resize-none mt-4'}
+                placeholder="Meta Description"
+                rows={3}
+                value={form.seoDescription}
+                onChange={(e) => field('seoDescription', e.target.value)}
+              />
+
+              <input
+                className={inputCls + ' mt-4'}
+                placeholder="Meta Keywords (comma separated)"
+                value={form.seoKeywords}
+                onChange={(e) => field('seoKeywords', e.target.value)}
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                <input
+                  className={inputCls}
+                  placeholder="OG Title"
+                  value={form.ogTitle}
+                  onChange={(e) => field('ogTitle', e.target.value)}
+                />
+                <input
+                  className={inputCls}
+                  placeholder="OG Image URL"
+                  value={form.ogImage}
+                  onChange={(e) => field('ogImage', e.target.value)}
+                />
+              </div>
+
+              <textarea
+                className={inputCls + ' resize-none mt-4'}
+                placeholder="OG Description"
+                rows={3}
+                value={form.ogDescription}
+                onChange={(e) => field('ogDescription', e.target.value)}
+              />
+
+              <div className="flex flex-wrap gap-6 mt-4">
+                {(
+                  [
+                    { key: 'noIndex', label: 'No Index' },
+                    { key: 'noFollow', label: 'No Follow' },
+                  ] as { key: keyof FormState; label: string }[]
+                ).map(({ key, label }) => (
+                  <label key={key} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form[key] as boolean}
+                      onChange={(e) => field(key, e.target.checked)}
+                      className="accent-n-forest w-4 h-4"
+                    />
+                    <span className="font-sans text-xs text-n-muted">{label}</span>
+                  </label>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-n-border bg-white/70 p-4 sm:p-5 shadow-[0_10px_30px_rgba(27,46,31,0.04)]">
+              <p className="font-sans text-[10px] tracking-[0.22em] uppercase text-n-muted mb-4">Inventory & Flags</p>
+              <div className="grid grid-cols-2 gap-4">
+                <input
+                  className={inputCls}
+                  placeholder="Stock Count *"
+                  type="number"
+                  min="0"
+                  value={form.stockCount}
+                  onChange={(e) => field('stockCount', e.target.value)}
+                  required
+                />
+                <input
+                  className={inputCls}
+                  placeholder="Low stock threshold"
+                  type="number"
+                  min="0"
+                  value={form.lowStockThreshold}
+                  onChange={(e) => field('lowStockThreshold', e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                <input
+                  className={inputCls}
+                  placeholder="Tags (comma separated)"
+                  value={form.tags}
+                  onChange={(e) => field('tags', e.target.value)}
+                />
+                <div className="hidden sm:block" />
+              </div>
+
+              <div className="mt-4">
+                <textarea
+                  className={inputCls + ' resize-none'}
+                  placeholder="Image URLs (one per line)"
+                  rows={4}
+                  value={form.images}
+                  onChange={(e) => field('images', e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+                {(
+                  [
+                    { key: 'isFeatured', label: 'Featured' },
+                    { key: 'isNewDrop', label: 'New Drop' },
+                    { key: 'isBestSeller', label: 'Best Seller' },
+                    { key: 'inStock', label: 'In Stock' },
+                  ] as { key: keyof FormState; label: string }[]
+                ).map(({ key, label }) => (
+                  <label key={key} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form[key] as boolean}
+                      onChange={(e) => field(key, e.target.checked)}
+                      className="accent-n-forest w-4 h-4"
+                    />
+                    <span className="font-sans text-xs text-n-muted">{label}</span>
+                  </label>
+                ))}
+              </div>
+            </section>
+
+            {error && <p className="text-red-600 font-sans text-xs">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={saving}
+              className="sticky bottom-0 bg-n-forest text-n-cream w-full py-3 font-sans text-xs tracking-widest uppercase hover:bg-n-gold hover:text-n-forest transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-2 shadow-lg"
+            >
+              {saving ? 'Saving...' : editing ? 'Save Changes' : 'Add Product'}
+            </button>
+          </div>
         </form>
       </div>
     </div>
@@ -476,7 +535,10 @@ export default function AdminProductsPage() {
   const fetchProducts = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/products?limit=100')
+      const res = await fetch('/api/products?limit=100', {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      })
       const data = await res.json()
       setProducts(data.products ?? [])
     } catch {
@@ -504,9 +566,11 @@ export default function AdminProductsPage() {
     router.replace(pathname)
   }
 
-  function handleSaved() {
+  async function handleSaved() {
     setModal(null)
-    fetchProducts()
+    // delay to let MongoDB write settle
+    await new Promise((r) => setTimeout(r, 300))
+    await fetchProducts()
     router.replace(pathname)
   }
 
@@ -525,14 +589,23 @@ export default function AdminProductsPage() {
           <h1 className="[font-family:var(--font-display)] text-3xl font-light text-n-ink">Products</h1>
           <p className="font-sans text-sm text-n-muted mt-2">Create and manage products in your catalog.</p>
         </div>
-        <button
-          onClick={() => setModal('add')}
-          data-cursor="hover"
-          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-n-forest text-n-cream px-6 py-3 font-sans text-xs tracking-widest uppercase hover:bg-n-gold hover:text-n-forest transition-colors"
-        >
-          <Plus size={14} strokeWidth={2} />
-          Add Product
-        </button>
+        <div className="flex w-full sm:w-auto flex-col sm:flex-row gap-3">
+          <Link
+            href="/"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-n-card border border-n-border text-n-ink px-6 py-3 font-sans text-xs tracking-widest uppercase hover:bg-n-forest hover:text-n-cream transition-colors no-underline"
+          >
+            <ExternalLink size={14} strokeWidth={1.5} />
+            Go to Shop
+          </Link>
+          <button
+            onClick={() => setModal('add')}
+            data-cursor="hover"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-n-forest text-n-cream px-6 py-3 font-sans text-xs tracking-widest uppercase hover:bg-n-gold hover:text-n-forest transition-colors"
+          >
+            <Plus size={14} strokeWidth={2} />
+            Add Product
+          </button>
+        </div>
       </div>
 
       <div>

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { connectDB, MongoUnavailableError } from '@/lib/mongodb'
 import ProductModel from '@/models/Product'
-import { MOCK_PRODUCTS as MOCK_DATA } from '@/lib/mockData'
 import { isAdminAuthed } from '@/lib/adminAuth'
 
 function withTimeout<T>(promise: Promise<T>, timeoutMS: number): Promise<T> {
@@ -110,25 +109,18 @@ export async function GET(request: Request) {
       { products },
       {
         headers: {
-          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+          'Pragma': 'no-cache',
         },
       }
     )
   } catch {
-    // DB not connected or no products — return mock data
-    let filtered = MOCK_DATA as typeof MOCK_DATA
-    if (category) filtered = filtered.filter((p) => p.category === category)
-    if (featured) filtered = filtered.filter((p) => p.isFeatured)
-    if (newDrop) filtered = filtered.filter((p) => p.isNewDrop)
-    filtered = filtered.filter((p) => p.inStock !== false)
-    if (sortParam === 'newest') {
-      filtered = [...filtered].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    } else if (sortParam === 'updated') {
-      filtered = [...filtered].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-    }
-    return NextResponse.json({ products: filtered.slice(0, limit) }, {
+    // DB not connected — return empty with error status (no mock data)
+    return NextResponse.json({ products: [], error: 'Database unavailable' }, {
+      status: 503,
       headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache',
       },
     })
   }
